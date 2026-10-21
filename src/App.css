@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #f6f6f4;
+  --app-surface: #ffffff;
+  --app-hover: #efefec;
+  --app-border: #e2e2dd;
+  --app-text: #1c1c1a;
+  --app-muted: #6b6b66;
+  --app-accent: #2f5fa8;
+  --app-accent-fg: #ffffff;
+  --app-danger: #b42318;
+  --app-danger-fg: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-bg: #151517;
+    --app-surface: #1e1e21;
+    --app-hover: #2a2a2e;
+    --app-border: #2e2e33;
+    --app-text: #ececea;
+    --app-muted: #9a9a95;
+    --app-accent: #6b93d6;
+    --app-accent-fg: #0f1420;
+    --app-danger: #f07167;
+    --app-danger-fg: #1a0a08;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-sans: Inter, system-ui, sans-serif;
+  --color-app: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-hover: var(--app-hover);
+  --color-line: var(--app-border);
+  --color-ink: var(--app-text);
+  --color-muted: var(--app-muted);
+  --color-accent: var(--app-accent);
+  --color-accent-fg: var(--app-accent-fg);
+  --color-danger: var(--app-danger);
+  --color-danger-fg: var(--app-danger-fg);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Los campos de texto y los elementos marcados con select-all/select-text siguen siendo seleccionables. */
+input,
+textarea,
+[contenteditable="true"],
+.select-all,
+.select-text {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.select-all {
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+/* Tailwind v4 deja los botones con cursor por defecto; todo lo accionable muestra pointer. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
