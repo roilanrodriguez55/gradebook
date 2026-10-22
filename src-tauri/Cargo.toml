@@ -1,5 +1,5 @@
 [package]
-name = "gradebook"
+name = "gradehub"
 version = "0.2.1"
 description = "A Tauri App"
 authors = ["you"]
@@ -11,7 +11,7 @@ edition = "2024"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "gradebook_lib"
+name = "gradehub_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -25,6 +25,7 @@ serde_json = "1"
 tauri-plugin-sql = { version = "2.6.0", features = ["sqlite"] }
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-fs = "2.7.1"
+dirs = "7"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

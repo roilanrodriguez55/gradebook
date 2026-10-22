@@ -35,7 +35,7 @@ const targets = [
   { file: "package-lock.json", re: /("version": ")(\d+\.\d+\.\d+)(")/, count: 2 },
   { file: "src-tauri/tauri.conf.json", re: /("version": ")(\d+\.\d+\.\d+)(")/, count: 1 },
   { file: "src-tauri/Cargo.toml", re: /^(version = ")(\d+\.\d+\.\d+)(")/m, count: 1 },
-  { file: "src-tauri/Cargo.lock", re: /(name = "gradebook"\nversion = ")(\d+\.\d+\.\d+)(")/, count: 1 },
+  { file: "src-tauri/Cargo.lock", re: /(name = "gradehub"\nversion = ")(\d+\.\d+\.\d+)(")/, count: 1 },
 ];
 
 const current = /"version": "(\d+\.\d+\.\d+)"/.exec(read("package.json"))[1];

@@ -1,6 +1,6 @@
 ---
 name: semver-bump
-description: Sube la version de Gradebook en formato semver (MAJOR.MINOR.PATCH) y anota el CHANGELOG. Invocala SIEMPRE al terminar de implementar una feature, un cambio de comportamiento o un fix en este proyecto, despues de validar y antes de avisar que el trabajo esta listo. No la uses para cambios sin efecto en la app (solo docs, comentarios, tests o refactors internos sin cambio visible).
+description: Sube la version de Gradehub en formato semver (MAJOR.MINOR.PATCH) y anota el CHANGELOG. Invocala SIEMPRE al terminar de implementar una feature, un cambio de comportamiento o un fix en este proyecto, despues de validar y antes de avisar que el trabajo esta listo. No la uses para cambios sin efecto en la app (solo docs, comentarios, tests o refactors internos sin cambio visible).
 ---
 
 # Semver bump
@@ -28,4 +28,4 @@ Despues del script, confirma con `git diff --stat` si el proyecto es repo git, o
 ## Reglas
 - No hagas commit, tag ni push; eso lo pide el usuario.
 - Si el script dice que las versiones estan desincronizadas, corrige primero la que difiere y reintenta.
-- No cambies el identificador de la app (`com.roilanrodriguez55.gradebook`) ni el nombre del paquete en un bump.
+- No cambies el identificador de la app (`com.roilanrodriguez55.gradehub`) ni el nombre del paquete en un bump.

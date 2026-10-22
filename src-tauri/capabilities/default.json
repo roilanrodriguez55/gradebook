@@ -9,6 +9,8 @@
     {
       "identifier": "opener:allow-open-path",
       "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
         { "path": "$HOME/**" },
         { "path": "$DOCUMENT/**" },
         { "path": "$DOWNLOAD/**" },

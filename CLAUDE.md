@@ -1,4 +1,4 @@
-# Gradebook
+# Gradehub
 
 App de escritorio (Tauri 2 + React + TS) para que el profesor gestione grupos, evaluaciones, entregas por GitHub y PDFs de notas.
 

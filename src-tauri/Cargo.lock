@@ -1510,9 +1510,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "gradebook"
+name = "gradehub"
 version = "0.2.1"
 dependencies = [
+ "dirs",
  "serde",
  "serde_json",
  "tauri",

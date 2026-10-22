@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { appConfigDir, join } from "@tauri-apps/api/path";
+import { dirname } from "@tauri-apps/api/path";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { getDb } from "../db/client";
 import * as settings from "../db/settings";
@@ -11,7 +12,6 @@ import { useToast } from "../components/ui/useToast";
 
 const DEFAULT_GRADE_MIN = "2";
 const DEFAULT_GRADE_MAX = "5";
-const DB_FILE_NAME = "entregas.db";
 const SQLITE_FILTER = { name: "Base SQLite", extensions: ["db"] };
 
 const sectionClass =
@@ -41,7 +41,7 @@ async function fetchGitStatus(path: string): Promise<GitStatus> {
 }
 
 async function dbFilePath(): Promise<string> {
-  return join(await appConfigDir(), DB_FILE_NAME);
+  return invoke<string>("db_path");
 }
 
 function localDate(): string {
@@ -156,6 +156,14 @@ export default function Settings() {
       setGradeNotice({ ok: true, text: "Guardado" });
     } catch (err) {
       setGradeNotice({ ok: false, text: errorText(err) });
+    }
+  }
+
+  async function openDataFolder() {
+    try {
+      await openPath(await dirname(dbPath));
+    } catch (err) {
+      toast.show(errorText(err));
     }
   }
 
@@ -308,6 +316,9 @@ export default function Settings() {
           <p className="select-all break-all font-mono text-sm">{dbPath}</p>
         </div>
         <div className="flex gap-2">
+          <button type="button" className={buttonClass} onClick={openDataFolder} disabled={!dbPath}>
+            Abrir carpeta
+          </button>
           <button type="button" className={buttonClass} onClick={exportBackup} disabled={dataBusy}>
             Exportar respaldo
           </button>

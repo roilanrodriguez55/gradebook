@@ -75,7 +75,7 @@ export default function Shell() {
         <div className="flex h-12 shrink-0 items-center px-3">
           <NavLink to="/" className="flex items-center gap-2 font-semibold">
             <img src="/logo-mark.png" alt="" className="size-7 rounded-md" draggable={false} />
-            Gradebook
+            Gradehub
           </NavLink>
         </div>
 

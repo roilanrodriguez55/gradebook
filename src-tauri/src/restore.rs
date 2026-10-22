@@ -4,7 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Manager};
 
-pub(crate) const DB_FILE: &str = "entregas.db";
+use crate::data::DataDir;
+
+pub(crate) use crate::data::DB_FILE;
 const RESTORE_FILE: &str = "entregas.db.restore";
 const BACKUP_PREFIX: &str = "entregas.db.bak-";
 const KEEP_BACKUPS: usize = 3;
@@ -83,15 +85,13 @@ pub(crate) fn swap_pending_restore(dir: &Path, now_millis: u128) -> Result<bool,
     Ok(true)
 }
 
-fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_config_dir()
-        .map_err(|err| format!("No se encontro la carpeta de configuracion: {err}"))
+fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app.state::<DataDir>().0.clone())
 }
 
 /// Llamado desde `setup`, antes de que el frontend abra la base. Nunca aborta la app.
 pub fn apply_pending_restore(app: &AppHandle) {
-    let result = config_dir(app).and_then(|dir| {
+    let result = data_dir(app).and_then(|dir| {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis())
@@ -115,7 +115,7 @@ fn stage_restore_blocking(dir: &Path, src: &Path) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn stage_restore(app: AppHandle, src: String) -> Result<(), String> {
-    let dir = config_dir(&app)?;
+    let dir = data_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || stage_restore_blocking(&dir, Path::new(&src)))
         .await
         .map_err(|err| format!("Error interno al preparar el respaldo: {err}"))?
@@ -146,7 +146,7 @@ pub fn remove_file_if_exists(app: AppHandle, path: String) -> Result<(), String>
     if !has_db_extension(target) {
         return Err("Solo se pueden borrar archivos .db".to_string());
     }
-    if is_live_db(target, &config_dir(&app)?) {
+    if is_live_db(target, &data_dir(&app)?) {
         return Err("No se puede borrar la base en uso".to_string());
     }
     if target.is_dir() {

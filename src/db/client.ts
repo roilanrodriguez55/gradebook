@@ -1,10 +1,12 @@
+import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
 
 let dbPromise: Promise<Database> | null = null;
 
 export function getDb(): Promise<Database> {
   if (!dbPromise) {
-    dbPromise = Database.load("sqlite:entregas.db")
+    dbPromise = invoke<string>("db_path")
+      .then((path) => Database.load(`sqlite:${path}`))
       .then(async (db) => {
         await db.execute("PRAGMA foreign_keys = ON");
         return db;

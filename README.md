@@ -1,4 +1,4 @@
-# Gradebook
+# Gradehub
 
 App de escritorio (Tauri 2 + React + TypeScript) para que el profesor gestione grupos, asignaturas, evaluaciones y entregas de estudiantes por GitHub. Clona los repositorios con `git`, guarda notas y comentarios, y genera un PDF de notas por evaluacion.
 
@@ -69,7 +69,7 @@ Notas:
 
 ### Datos locales
 
-La base esta en `~/.config/com.roilanrodriguez55.gradebook/entregas.db` (Linux). Para empezar de cero en desarrollo, cierra la app y borra ese archivo junto con sus `-wal` y `-shm`.
+La base esta en `~/.local/share/com.roilanrodriguez55.gradehub/entregas.db` (Linux) o `%APPDATA%\com.roilanrodriguez55.gradehub\entregas.db` (Windows). En Ajustes, seccion Datos, el boton "Abrir carpeta" la abre. Al primer arranque, si existe una base en la carpeta de configuracion anterior (`~/.config/...`), se copia a la nueva. Para empezar de cero en desarrollo, cierra la app y borra ese archivo junto con sus `-wal` y `-shm`.
 
 ## Versionado
 
@@ -102,7 +102,7 @@ Con Claude Code lo hace la skill `semver-bump` (`.claude/skills/semver-bump/`) a
    npm run tauri build
    ```
    Los artefactos quedan en `src-tauri/target/release/bundle/`. En Linux salen `deb/*.deb`, `rpm/*.rpm` y `appimage/*.AppImage`. Variantes:
-   - Solo el binario: `npm run tauri build -- --no-bundle` (queda en `src-tauri/target/release/gradebook`).
+   - Solo el binario: `npm run tauri build -- --no-bundle` (queda en `src-tauri/target/release/gradehub`).
    - Un solo formato: `npm run tauri build -- --bundles deb`.
 
    Cada sistema se compila en su propia maquina. En Windows el mismo comando genera `msi/*.msi` y `nsis/*.exe`. Desde Linux no se generan de forma fiable (`cargo-xwin` existe pero es experimental), asi que el build de Windows se hace en una maquina Windows o con GitHub Actions.
@@ -111,7 +111,7 @@ Con Claude Code lo hace la skill `semver-bump` (`.claude/skills/semver-bump/`) a
 
 ### Build automatico
 
-El workflow `.github/workflows/build.yml` compila Linux y Windows en GitHub Actions en cada push a `main`. Tambien se lanza a mano desde la pestana Actions con "Run workflow". Los instaladores quedan como artefactos del run (`gradebook-linux` y `gradebook-windows`, 14 dias). En Linux ademas corre `tsc` y `cargo test`.
+El workflow `.github/workflows/build.yml` compila Linux y Windows en GitHub Actions en cada push a `main`. Tambien se lanza a mano desde la pestana Actions con "Run workflow". Los instaladores quedan como artefactos del run (`gradehub-linux` y `gradehub-windows`, 14 dias). En Linux ademas corre `tsc` y `cargo test`.
 
 ### Pendientes del empaquetado
 
