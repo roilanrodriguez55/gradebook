@@ -2,6 +2,16 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.2.3] - 2026-10-25
+
+### Fixed
+- El reporte PDF muestra el tema y el titulo de la evaluacion
+
+## [0.2.2] - 2026-10-24
+
+### Fixed
+- Tabla de entregas de la evaluacion ya no se congela (bucle de renders): los selects, el menu de acciones y los campos conservan el foco
+
 ## [0.2.1] - 2026-10-21
 
 ### Added

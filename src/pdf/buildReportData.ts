@@ -39,6 +39,8 @@ export interface ReportStats {
 
 export interface ReportData {
   titulo: string;
+  // Titulo de la evaluacion; `titulo` lleva el tema.
+  descripcion: string;
   asignatura: string;
   grupo: string;
   periodo: string | null;
@@ -108,6 +110,7 @@ export function buildReportData(input: ReportInput, options: ReportOptions): Rep
 
   return {
     titulo: input.evaluation.topic,
+    descripcion: input.evaluation.title.trim(),
     asignatura: input.subjectName,
     grupo: input.groupName,
     periodo: input.groupPeriod,

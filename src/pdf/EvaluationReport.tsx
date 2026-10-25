@@ -16,6 +16,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   title: { fontSize: 20, fontFamily: "Helvetica-Bold", marginBottom: 6 },
+  subtitle: { fontSize: 12, color: MUTED, marginBottom: 6 },
   meta: { fontSize: 10, color: MUTED, marginBottom: 2 },
   header: {
     borderBottomWidth: 1.5,
@@ -113,6 +114,9 @@ export function EvaluationReport({ data, options, generatedAt }: Props) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>{data.titulo}</Text>
+          {data.descripcion && data.descripcion !== data.titulo ? (
+            <Text style={styles.subtitle}>{data.descripcion}</Text>
+          ) : null}
           <Text style={styles.meta}>
             {`${data.asignatura} - ${grupo} - Generado el ${generatedAt}`}
           </Text>

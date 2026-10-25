@@ -42,6 +42,20 @@ interface TableRow extends SubmissionRow {
   number: number;
 }
 
+// Datos que cambian entre renders. Van por `meta` para que las columnas sean estables:
+// si las columnas se recrean, TanStack remonta todas las celdas y se pierde foco, selects y menus abiertos.
+interface TableMeta {
+  gradeMin: number;
+  gradeMax: number;
+  onSave: SaveSubmission;
+  downloading: boolean;
+  onDownload: (row: SubmissionRow) => Promise<void>;
+}
+
+function metaOf(table: { options: { meta?: unknown } }): TableMeta {
+  return table.options.meta as TableMeta;
+}
+
 const columnHelper = createColumnHelper<TableRow>();
 const collator = new Intl.Collator("es", { sensitivity: "base" });
 
@@ -476,14 +490,18 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
     [rows],
   );
 
-  const q = normalizeText(query.trim());
-  const visible: TableRow[] = sorted
-    .map((row, index) => ({ ...row, number: index + 1 }))
-    .filter(
-      (row) =>
-        matchesFilter(row.submission, filter) &&
-        (q === "" || normalizeText(`${row.student.first_names} ${row.student.last_names}`).includes(q)),
-    );
+  // `data` de la tabla debe ser estable: un array nuevo en cada render dispara el auto-reset de TanStack
+  // y provoca un bucle de renders que congela la pantalla.
+  const visible = useMemo<TableRow[]>(() => {
+    const q = normalizeText(query.trim());
+    return sorted
+      .map((row, index) => ({ ...row, number: index + 1 }))
+      .filter(
+        (row) =>
+          matchesFilter(row.submission, filter) &&
+          (q === "" || normalizeText(`${row.student.first_names} ${row.student.last_names}`).includes(q)),
+      );
+  }, [sorted, query, filter]);
 
   const columns = useMemo(
     () => [
@@ -509,13 +527,13 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
         id: "repositorio",
         header: "Repositorio",
         size: 280,
-        cell: (info) => <RepoCell submission={info.row.original.submission} onSave={onSave} />,
+        cell: (info) => <RepoCell submission={info.row.original.submission} onSave={metaOf(info.table).onSave} />,
       }),
       columnHelper.display({
         id: "estado",
         header: "Estado",
         size: 240,
-        cell: (info) => <StatusCell submission={info.row.original.submission} onSave={onSave} />,
+        cell: (info) => <StatusCell submission={info.row.original.submission} onSave={metaOf(info.table).onSave} />,
       }),
       columnHelper.display({
         id: "descarga",
@@ -527,15 +545,18 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
         id: "nota",
         header: "Nota",
         size: 120,
-        cell: (info) => (
-          <GradeCell
-            submission={info.row.original.submission}
-            gradeMin={gradeMin}
-            gradeMax={gradeMax}
-            index={info.row.index}
-            onSave={onSave}
-          />
-        ),
+        cell: (info) => {
+          const meta = metaOf(info.table);
+          return (
+            <GradeCell
+              submission={info.row.original.submission}
+              gradeMin={meta.gradeMin}
+              gradeMax={meta.gradeMax}
+              index={info.row.index}
+              onSave={meta.onSave}
+            />
+          );
+        },
       }),
       columnHelper.display({
         id: "comentario",
@@ -547,7 +568,7 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
             <CommentCell
               submission={submission}
               studentName={`${student.first_names} ${student.last_names}`}
-              onSave={onSave}
+              onSave={metaOf(info.table).onSave}
             />
           );
         },
@@ -558,25 +579,28 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
         size: 64,
         cell: (info) => {
           const { submission, student } = info.row.original;
+          const meta = metaOf(info.table);
           return (
             <ActionsCell
               submission={submission}
               studentName={`${student.first_names} ${student.last_names}`}
-              busy={downloading}
-              onDownload={() => onDownload(info.row.original)}
+              busy={meta.downloading}
+              onDownload={() => meta.onDownload(info.row.original)}
             />
           );
         },
       }),
     ],
-    [gradeMin, gradeMax, onSave, downloading, onDownload],
+    [],
   );
 
   const table = useReactTable({
     data: visible,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    autoResetAll: false,
     getRowId: (row) => String(row.submission.id),
+    meta: { gradeMin, gradeMax, onSave, downloading, onDownload } satisfies TableMeta,
   });
 
   return (
