@@ -73,3 +73,45 @@ jobs:
           path: ${{ matrix.bundle_glob }}
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish release
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read app version
+        id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check release does not exist
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "El release ${{ steps.version.outputs.tag }} ya existe, no se publica de nuevo"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.exists.outputs.found == 'false'
+        with:
+          path: dist-artifacts
+          merge-multiple: true
+
+      - name: Create release
+        if: steps.exists.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" dist-artifacts/* \
+            --target "${GITHUB_SHA}" \
+            --title "Gradehub ${{ steps.version.outputs.tag }}" \
+            --generate-notes
