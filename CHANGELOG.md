@@ -2,6 +2,22 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-10-25
+
+### Added
+- Las entregas se editan en un formulario (repositorio, estado, nota y comentario) abierto desde el boton Editar de cada fila
+
+### Changed
+- La tabla de entregas es de solo lectura y cabe sin scroll lateral
+
+### Fixed
+- El menu de acciones de cada fila ya no queda recortado por la tabla
+
+## [0.2.4] - 2026-10-25
+
+### Fixed
+- Las columnas de la tabla de entregas ya no se comprimen: los campos de repositorio y estado se ven completos y la tabla tiene scroll horizontal si no cabe
+
 ## [0.2.3] - 2026-10-25
 
 ### Fixed

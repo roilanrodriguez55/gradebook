@@ -12,10 +12,11 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
+  Pencil,
   Search,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState, useEffect, type KeyboardEvent, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import * as submissions from "../../db/submissions";
 import type { DownloadStatus, Student, Submission, SubmissionStatus } from "../../db/types";
 import { validateGrade } from "../../lib/grade";
@@ -25,7 +26,9 @@ import { isDelivered } from "../../lib/submissionStatus";
 import { Badge, type BadgeTone } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
+import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
+import { Menu, MenuItem } from "../ui/Menu";
 import { Select } from "../ui/Select";
 import { Textarea } from "../ui/Textarea";
 import { useToast } from "../ui/useToast";
@@ -108,98 +111,17 @@ function matchesFilter(submission: Submission, filter: FilterKey): boolean {
   }
 }
 
-// Celda de repositorio: normaliza al perder foco o con Enter. Guardar solo si la URL es valida.
-function RepoCell({ submission, onSave }: { submission: Submission; onSave: SaveSubmission }) {
-  const current = submission.repo_url ?? "";
-  const [draft, setDraft] = useState(current);
-  const [error, setError] = useState<string | null>(null);
-  const savedRef = useRef(current);
-
-  useEffect(() => {
-    setDraft(current);
-    setError(null);
-    savedRef.current = current;
-  }, [current]);
-
-  function commit() {
-    const trimmed = draft.trim();
-    let normalized: string | null = null;
-    if (trimmed !== "") {
-      normalized = normalizeGithubUrl(trimmed);
-      if (normalized === null) {
-        setError("URL de GitHub invalida");
-        return;
-      }
-    }
-    setError(null);
-    const next = normalized ?? "";
-    setDraft(next);
-    if (next === savedRef.current) return;
-    savedRef.current = next;
-
-    let status: SubmissionStatus | null = null;
-    if (normalized !== null && submission.status === "pendiente") status = "entregado";
-    if (normalized === null && isDelivered(submission)) status = "pendiente";
-
-    void onSave(submission.id, { repo_url: normalized, ...(status ? { status } : {}) }, async () => {
-      await submissions.setRepoUrl(submission.id, normalized);
-      if (status) await submissions.setStatus(submission.id, status);
-    });
-  }
-
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    commit();
-  }
-
-  return (
-    <div className="flex flex-col">
-      <Input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={onKeyDown}
-        placeholder="https://github.com/usuario/repo"
-        aria-label="Repositorio"
-        aria-invalid={error !== null}
-        className={clsx("w-full min-w-48", error !== null && "border-danger")}
-      />
-      {error !== null && <span className="text-xs text-danger">{error}</span>}
-    </div>
-  );
-}
-
-function StatusCell({ submission, onSave }: { submission: Submission; onSave: SaveSubmission }) {
-  const meta = STATUS_META[submission.status];
+function StatusBadge({ status }: { status: SubmissionStatus }) {
+  const meta = STATUS_META[status];
   const { Icon } = meta;
 
-  function change(next: SubmissionStatus) {
-    if (next === submission.status) return;
-    void onSave(submission.id, { status: next }, () => submissions.setStatus(submission.id, next));
-  }
-
   return (
-    <div className="flex items-center gap-2">
-      <Badge tone={meta.tone}>
-        <span className="inline-flex items-center gap-1">
-          <Icon size={12} aria-hidden="true" />
-          {meta.label}
-        </span>
-      </Badge>
-      <Select
-        aria-label="Cambiar estado"
-        value={submission.status}
-        onChange={(e) => change(e.target.value as SubmissionStatus)}
-        className="w-32"
-      >
-        {STATUS_ORDER.map((status) => (
-          <option key={status} value={status}>
-            {STATUS_META[status].label}
-          </option>
-        ))}
-      </Select>
-    </div>
+    <Badge tone={meta.tone}>
+      <span className="inline-flex items-center gap-1">
+        <Icon size={12} aria-hidden="true" />
+        {meta.label}
+      </span>
+    </Badge>
   );
 }
 
@@ -220,119 +142,130 @@ function DownloadCell({ submission }: { submission: Submission }) {
   );
 }
 
-// Celda de nota: valida contra la escala de la asignatura. Enter guarda y pasa a la nota de la fila siguiente.
-function GradeCell({
-  submission,
-  gradeMin,
-  gradeMax,
-  index,
-  onSave,
-}: {
+interface EditSubmissionDialogProps {
   submission: Submission;
+  studentName: string;
   gradeMin: number;
   gradeMax: number;
-  index: number;
   onSave: SaveSubmission;
-}) {
-  const current = submission.grade === null ? "" : String(submission.grade);
-  const [draft, setDraft] = useState(current);
-  const [error, setError] = useState<string | null>(null);
-  const savedRef = useRef(current);
+  onClose: () => void;
+}
 
-  useEffect(() => {
-    setDraft(current);
-    setError(null);
-    savedRef.current = current;
-  }, [current]);
+// Edita los campos de una entrega. Solo se guardan los campos que cambiaron.
+function EditSubmissionDialog({ submission, studentName, gradeMin, gradeMax, onSave, onClose }: EditSubmissionDialogProps) {
+  const [repoDraft, setRepoDraft] = useState(submission.repo_url ?? "");
+  const [statusDraft, setStatusDraft] = useState<SubmissionStatus>(submission.status);
+  const [gradeDraft, setGradeDraft] = useState(submission.grade === null ? "" : String(submission.grade));
+  const [commentDraft, setCommentDraft] = useState(submission.comment ?? "");
+  const [repoError, setRepoError] = useState<string | null>(null);
+  const [gradeError, setGradeError] = useState<string | null>(null);
 
-  // Devuelve false si la nota no es valida.
-  function commit(): boolean {
-    const trimmed = draft.trim().replace(",", ".");
+  function save() {
+    setRepoError(null);
+    setGradeError(null);
+
+    const trimmedRepo = repoDraft.trim();
+    let repoUrl: string | null = null;
+    if (trimmedRepo !== "") {
+      repoUrl = normalizeGithubUrl(trimmedRepo);
+      if (repoUrl === null) {
+        setRepoError("URL de GitHub invalida");
+        return;
+      }
+    }
+
+    const trimmedGrade = gradeDraft.trim().replace(",", ".");
     let grade: number | null = null;
-    if (trimmed !== "") {
-      const check = validateGrade(Number(trimmed), gradeMin, gradeMax);
+    if (trimmedGrade !== "") {
+      const check = validateGrade(Number(trimmedGrade), gradeMin, gradeMax);
       if (!check.ok) {
-        setError(`Entre ${gradeMin} y ${gradeMax}`);
-        return false;
+        setGradeError(`Entre ${gradeMin} y ${gradeMax}`);
+        return;
       }
       grade = check.value;
     }
-    setError(null);
-    const next = grade === null ? "" : String(grade);
-    setDraft(next);
-    if (next === savedRef.current) return true;
-    savedRef.current = next;
-    void onSave(submission.id, { grade }, () => submissions.setGrade(submission.id, grade));
-    return true;
-  }
 
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    if (!commit()) return;
-    const next = e.currentTarget
-      .closest("tbody")
-      ?.querySelector<HTMLInputElement>(`input[data-grade-row="${index + 1}"]`);
-    next?.focus();
-    next?.select();
-  }
+    const comment = commentDraft.trim() || null;
+    const repoChanged = repoUrl !== (submission.repo_url ?? null);
 
-  return (
-    <div className="flex flex-col items-end">
-      <Input
-        type="number"
-        min={gradeMin}
-        max={gradeMax}
-        step="any"
-        inputMode="decimal"
-        placeholder={`${gradeMin}-${gradeMax}`}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          commit();
-        }}
-        onKeyDown={onKeyDown}
-        data-grade-row={index}
-        aria-label="Nota"
-        aria-invalid={error !== null}
-        className={clsx("w-24 text-right tabular-nums", error !== null && "border-danger")}
-      />
-      {error !== null && <span className="text-xs text-danger">{error}</span>}
-    </div>
-  );
-}
+    // Regla automatica: solo si el usuario no toco el estado en el formulario.
+    let status = statusDraft;
+    if (statusDraft === submission.status && repoChanged) {
+      if (repoUrl !== null && submission.status === "pendiente") status = "entregado";
+      if (repoUrl === null && isDelivered(submission)) status = "pendiente";
+    }
 
-function CommentDialog({
-  submission,
-  studentName,
-  onSave,
-  onClose,
-}: {
-  submission: Submission;
-  studentName: string;
-  onSave: SaveSubmission;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState(submission.comment ?? "");
+    const patch: Partial<Submission> = {};
+    if (repoChanged) patch.repo_url = repoUrl;
+    if (status !== submission.status) patch.status = status;
+    if (grade !== submission.grade) patch.grade = grade;
+    if (comment !== (submission.comment ?? null)) patch.comment = comment;
 
-  function save() {
-    const next = draft.trim() || null;
     onClose();
-    if (next === submission.comment) return;
-    void onSave(submission.id, { comment: next }, () => submissions.setComment(submission.id, next));
+    if (Object.keys(patch).length === 0) return;
+
+    const id = submission.id;
+    void onSave(id, patch, async () => {
+      if (patch.repo_url !== undefined) await submissions.setRepoUrl(id, repoUrl);
+      if (patch.status !== undefined) await submissions.setStatus(id, status);
+      if (patch.grade !== undefined) await submissions.setGrade(id, grade);
+      if (patch.comment !== undefined) await submissions.setComment(id, comment);
+    });
   }
 
   return (
-    <Dialog open title={`Comentario de ${studentName}`} onClose={onClose}>
+    <Dialog open title={`Entrega de ${studentName}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={4}
-          maxLength={2000}
-          autoFocus
-          aria-label="Comentario"
-        />
+        <div className="flex flex-col gap-1">
+          <Field label="Repositorio">
+            <Input
+              value={repoDraft}
+              onChange={(e) => setRepoDraft(e.target.value)}
+              placeholder="https://github.com/usuario/repo"
+              aria-invalid={repoError !== null}
+              className={clsx(repoError !== null && "border-danger")}
+            />
+          </Field>
+          {repoError !== null && <span className="text-xs text-danger">{repoError}</span>}
+        </div>
+
+        <Field label="Estado">
+          <Select value={statusDraft} onChange={(e) => setStatusDraft(e.target.value as SubmissionStatus)}>
+            {STATUS_ORDER.map((status) => (
+              <option key={status} value={status}>
+                {STATUS_META[status].label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <div className="flex flex-col gap-1">
+          <Field label="Nota">
+            <Input
+              type="number"
+              min={gradeMin}
+              max={gradeMax}
+              step="any"
+              inputMode="decimal"
+              placeholder={`${gradeMin}-${gradeMax}`}
+              value={gradeDraft}
+              onChange={(e) => setGradeDraft(e.target.value)}
+              aria-invalid={gradeError !== null}
+              className={clsx("text-right tabular-nums", gradeError !== null && "border-danger")}
+            />
+          </Field>
+          {gradeError !== null && <span className="text-xs text-danger">{gradeError}</span>}
+        </div>
+
+        <Field label="Comentario">
+          <Textarea
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
+            rows={4}
+            maxLength={2000}
+          />
+        </Field>
+
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancelar</Button>
           <Button variant="primary" onClick={save}>
@@ -344,55 +277,6 @@ function CommentDialog({
   );
 }
 
-function CommentCell({
-  submission,
-  studentName,
-  onSave,
-}: {
-  submission: Submission;
-  studentName: string;
-  onSave: SaveSubmission;
-}) {
-  const [open, setOpen] = useState(false);
-  const hasComment = (submission.comment ?? "").trim() !== "";
-
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setOpen(true)}
-        aria-label={`Comentario de ${studentName}`}
-        title={hasComment ? "Ver o editar comentario" : "Agregar comentario"}
-      >
-        <MessageSquare size={14} fill={hasComment ? "currentColor" : "none"} className={clsx(hasComment && "text-accent")} />
-      </Button>
-      {open && (
-        <CommentDialog
-          submission={submission}
-          studentName={studentName}
-          onSave={onSave}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
-function MenuItem({ disabled, onClick, children }: { disabled: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-8 items-center rounded px-2 text-left text-sm hover:bg-hover disabled:opacity-50"
-    >
-      {children}
-    </button>
-  );
-}
-
 const DOWNLOAD_LABEL: Record<DownloadStatus, string> = {
   sin_descargar: "Descargar",
   descargando: "Descargar",
@@ -400,24 +284,30 @@ const DOWNLOAD_LABEL: Record<DownloadStatus, string> = {
   error: "Reintentar",
 };
 
+// El dialogo de edicion vive aqui (no en SubmissionsTable) para que abrirlo no cambie `meta` ni las columnas.
 function ActionsCell({
   submission,
   studentName,
+  gradeMin,
+  gradeMax,
+  onSave,
   busy,
   onDownload,
 }: {
   submission: Submission;
   studentName: string;
+  gradeMin: number;
+  gradeMax: number;
+  onSave: SaveSubmission;
   busy: boolean;
   onDownload: () => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const toast = useToast();
   const repoUrl = submission.repo_url;
   const localPath = submission.local_path;
 
   async function run(action: () => Promise<void>) {
-    setOpen(false);
     try {
       await action();
     } catch (err) {
@@ -426,41 +316,58 @@ function ActionsCell({
   }
 
   return (
-    <div className="relative flex justify-end">
+    <div className="flex items-center justify-end gap-1">
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Acciones de ${studentName}`}
-        aria-expanded={open}
+        onClick={() => setEditing(true)}
+        aria-label={`Editar entrega de ${studentName}`}
+        title="Editar entrega"
       >
-        <MoreHorizontal size={14} />
+        <Pencil size={14} />
       </Button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-8 z-20 flex w-52 flex-col gap-0.5 rounded-md border border-line bg-surface p-1 shadow-sm"
-        >
-          <MenuItem
-            disabled={!repoUrl}
-            onClick={() => {
-              if (repoUrl) void run(() => openUrl(repoUrl));
-            }}
-          >
-            Abrir en GitHub
-          </MenuItem>
-          <MenuItem
-            disabled={!localPath}
-            onClick={() => {
-              if (localPath) void run(() => openPath(localPath));
-            }}
-          >
-            Abrir carpeta local
-          </MenuItem>
-          <MenuItem disabled={!repoUrl || busy} onClick={() => void run(onDownload)}>
-            {DOWNLOAD_LABEL[submission.download_status]}
-          </MenuItem>
-        </div>
+      <Menu label={`Acciones de ${studentName}`} trigger={<MoreHorizontal size={14} />}>
+        {(close) => (
+          <>
+            <MenuItem
+              disabled={!repoUrl}
+              onClick={() => {
+                close();
+                if (repoUrl) void run(() => openUrl(repoUrl));
+              }}
+            >
+              Abrir en GitHub
+            </MenuItem>
+            <MenuItem
+              disabled={!localPath}
+              onClick={() => {
+                close();
+                if (localPath) void run(() => openPath(localPath));
+              }}
+            >
+              Abrir carpeta local
+            </MenuItem>
+            <MenuItem
+              disabled={!repoUrl || busy}
+              onClick={() => {
+                close();
+                void run(onDownload);
+              }}
+            >
+              {DOWNLOAD_LABEL[submission.download_status]}
+            </MenuItem>
+          </>
+        )}
+      </Menu>
+      {editing && (
+        <EditSubmissionDialog
+          submission={submission}
+          studentName={studentName}
+          gradeMin={gradeMin}
+          gradeMax={gradeMax}
+          onSave={onSave}
+          onClose={() => setEditing(false)}
+        />
       )}
     </div>
   );
@@ -513,70 +420,48 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
       columnHelper.display({
         id: "estudiante",
         header: "Estudiante",
-        size: 220,
         cell: (info) => {
-          const { student } = info.row.original;
+          const { student, submission } = info.row.original;
+          const comment = (submission.comment ?? "").trim();
           return (
-            <span className="block truncate">
-              {student.first_names} {student.last_names}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate">
+                {student.first_names} {student.last_names}
+              </span>
+              {comment !== "" && (
+                <span title={comment} className="shrink-0">
+                  <MessageSquare size={12} aria-label="Tiene comentario" className="text-accent" />
+                </span>
+              )}
             </span>
           );
         },
       }),
       columnHelper.display({
-        id: "repositorio",
-        header: "Repositorio",
-        size: 280,
-        cell: (info) => <RepoCell submission={info.row.original.submission} onSave={metaOf(info.table).onSave} />,
-      }),
-      columnHelper.display({
         id: "estado",
         header: "Estado",
-        size: 240,
-        cell: (info) => <StatusCell submission={info.row.original.submission} onSave={metaOf(info.table).onSave} />,
+        size: 160,
+        cell: (info) => <StatusBadge status={info.row.original.submission.status} />,
       }),
       columnHelper.display({
         id: "descarga",
         header: "Descarga",
-        size: 130,
+        size: 140,
         cell: (info) => <DownloadCell submission={info.row.original.submission} />,
       }),
       columnHelper.display({
         id: "nota",
         header: "Nota",
-        size: 120,
-        cell: (info) => {
-          const meta = metaOf(info.table);
-          return (
-            <GradeCell
-              submission={info.row.original.submission}
-              gradeMin={meta.gradeMin}
-              gradeMax={meta.gradeMax}
-              index={info.row.index}
-              onSave={meta.onSave}
-            />
-          );
-        },
-      }),
-      columnHelper.display({
-        id: "comentario",
-        header: "Comentario",
         size: 100,
         cell: (info) => {
-          const { submission, student } = info.row.original;
-          return (
-            <CommentCell
-              submission={submission}
-              studentName={`${student.first_names} ${student.last_names}`}
-              onSave={metaOf(info.table).onSave}
-            />
-          );
+          const { grade } = info.row.original.submission;
+          return <span className="block text-right tabular-nums">{grade === null ? "-" : grade}</span>;
         },
       }),
       columnHelper.display({
         id: "acciones",
         header: () => <span className="sr-only">Acciones</span>,
-        size: 64,
+        size: 104,
         cell: (info) => {
           const { submission, student } = info.row.original;
           const meta = metaOf(info.table);
@@ -584,6 +469,9 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
             <ActionsCell
               submission={submission}
               studentName={`${student.first_names} ${student.last_names}`}
+              gradeMin={meta.gradeMin}
+              gradeMax={meta.gradeMax}
+              onSave={meta.onSave}
               busy={meta.downloading}
               onDownload={() => meta.onDownload(info.row.original)}
             />
@@ -625,13 +513,13 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
         </Select>
       </div>
 
-      <div className="rounded-lg border border-line bg-surface">
-        <table className="w-full border-collapse text-left">
+      <div className="overflow-hidden rounded-lg border border-line bg-surface">
+        <table className="w-full table-fixed border-collapse text-left">
           <thead className="bg-hover text-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="h-9">
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} style={{ width: header.getSize() }} className="px-3 font-medium">
+                  <th key={header.id} style={{ width: header.id === "estudiante" ? undefined : header.getSize() }} className="px-3 font-medium">
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
