@@ -40,7 +40,7 @@ export function Dialog({ open, title, onClose, children, size = "md" }: DialogPr
             <X size={16} />
           </Button>
         </div>
-        <div className="overflow-y-auto p-4">{children}</div>
+        <div className="overflow-y-auto p-4 [scrollbar-gutter:stable]">{children}</div>
       </div>
     </div>
   );

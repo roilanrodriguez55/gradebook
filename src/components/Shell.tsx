@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ChevronDown, ChevronRight, Plus, Settings } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import pkg from "../../package.json";
 import { useDataVersion } from "../context/DataVersionContext";
 import { loadGroupViews } from "../lib/queries";
 import { useLoadState } from "../lib/useLoad";
@@ -164,6 +165,7 @@ export default function Shell() {
             <Settings size={14} />
             Ajustes
           </NavLink>
+          <span className="px-1 text-xs text-muted">v{pkg.version}</span>
         </div>
       </aside>
 

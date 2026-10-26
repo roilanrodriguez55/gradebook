@@ -74,8 +74,8 @@ export function StudentFormDialog({ groupId, student, onClose }: StudentFormDial
       }
       // Solo guarda arrastres cargados: si aun cargan, guardar vaciaria los existentes.
       if (carryData) await students.setCarries(studentId, carryIds);
-      refresh();
       onClose();
+      refresh();
     } catch (err) {
       toast.show(errorMessage(err));
     } finally {
@@ -84,7 +84,8 @@ export function StudentFormDialog({ groupId, student, onClose }: StudentFormDial
   }
 
   // Se monta cuando ya cargo la seccion de arrastre: si aparece despues, el dialogo cambia de altura.
-  if (carryLoading) return null;
+  // Solo la primera carga oculta el dialogo; recargas posteriores no lo desmontan.
+  if (carryLoading && !carryData) return null;
 
   return (
     <Dialog open title={student ? "Editar estudiante" : "Nuevo estudiante"} onClose={onClose}>

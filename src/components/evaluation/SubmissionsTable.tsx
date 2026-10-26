@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Pencil,
   Search,
+  UserPen,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -55,6 +56,7 @@ interface TableMeta {
   onSave: SaveSubmission;
   downloading: boolean;
   onDownload: (row: SubmissionRow) => Promise<void>;
+  onEditStudent: (student: Student) => void;
 }
 
 function metaOf(table: { options: { meta?: unknown } }): TableMeta {
@@ -200,7 +202,8 @@ function EditSubmissionDialog({ submission, studentName, gradeMin, gradeMax, onS
               className={clsx(repoError !== null && "border-danger")}
             />
           </Field>
-          {repoError !== null && <span className="text-xs text-danger">{repoError}</span>}
+          {/* Linea de error siempre presente para que el dialogo no cambie de altura */}
+          <span className="min-h-4 text-xs text-danger">{repoError}</span>
         </div>
 
         <Field label="Estado">
@@ -228,7 +231,7 @@ function EditSubmissionDialog({ submission, studentName, gradeMin, gradeMax, onS
               className={clsx("text-right tabular-nums", gradeError !== null && "border-danger")}
             />
           </Field>
-          {gradeError !== null && <span className="text-xs text-danger">{gradeError}</span>}
+          <span className="min-h-4 text-xs text-danger">{gradeError}</span>
         </div>
 
         <Field label="Comentario">
@@ -267,6 +270,7 @@ function ActionsCell({
   onSave,
   busy,
   onDownload,
+  onEditStudent,
 }: {
   submission: Submission;
   studentName: string;
@@ -275,6 +279,7 @@ function ActionsCell({
   onSave: SaveSubmission;
   busy: boolean;
   onDownload: () => Promise<void>;
+  onEditStudent: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const toast = useToast();
@@ -299,6 +304,15 @@ function ActionsCell({
         title="Editar entrega"
       >
         <Pencil size={14} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onEditStudent}
+        aria-label={`Editar estudiante ${studentName}`}
+        title="Editar estudiante"
+      >
+        <UserPen size={14} />
       </Button>
       <Menu label={`Acciones de ${studentName}`} trigger={<MoreHorizontal size={14} />}>
         {(close) => (
@@ -361,6 +375,7 @@ interface SubmissionsTableProps {
   onFilterChange: (filter: FilterKey) => void;
   onPasteStudents: () => void;
   onAddStudent: () => void;
+  onEditStudent: (student: Student) => void;
 }
 
 export function SubmissionsTable({
@@ -375,6 +390,7 @@ export function SubmissionsTable({
   onFilterChange,
   onPasteStudents,
   onAddStudent,
+  onEditStudent,
 }: SubmissionsTableProps) {
   const [query, setQuery] = useState("");
 
@@ -467,6 +483,7 @@ export function SubmissionsTable({
               onSave={meta.onSave}
               busy={meta.downloading}
               onDownload={() => meta.onDownload(info.row.original)}
+              onEditStudent={() => meta.onEditStudent(student)}
             />
           );
         },
@@ -481,7 +498,7 @@ export function SubmissionsTable({
     getCoreRowModel: getCoreRowModel(),
     autoResetAll: false,
     getRowId: (row) => String(row.submission.id),
-    meta: { gradeMin, gradeMax, carrierIds, onSave, downloading, onDownload } satisfies TableMeta,
+    meta: { gradeMin, gradeMax, carrierIds, onSave, downloading, onDownload, onEditStudent } satisfies TableMeta,
   });
 
   return (

@@ -100,6 +100,7 @@ export default function Evaluation() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [addingStudent, setAddingStudent] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [pasting, setPasting] = useState(false);
   // Filtro de la tabla de entregas. Tambien es el filtro inicial del PDF.
   const [filter, setFilter] = useState<FilterKey>("todos");
@@ -370,6 +371,7 @@ export default function Evaluation() {
             onFilterChange={setFilter}
             onPasteStudents={() => setPasting(true)}
             onAddStudent={() => setAddingStudent(true)}
+            onEditStudent={setEditingStudent}
           />
         </>
       )}
@@ -383,6 +385,9 @@ export default function Evaluation() {
       )}
 
       {addingStudent && <StudentFormDialog groupId={group.id} onClose={() => setAddingStudent(false)} />}
+      {editingStudent !== null && (
+        <StudentFormDialog groupId={group.id} student={editingStudent} onClose={() => setEditingStudent(null)} />
+      )}
       {pasting && <PasteStudentsDialog groupId={group.id} onClose={() => setPasting(false)} />}
 
       <PdfExportDialog

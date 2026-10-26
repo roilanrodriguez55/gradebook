@@ -2,6 +2,15 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-10-26
+
+### Added
+- Version de la app visible en el pie del sidebar, leida de package.json
+- Boton para editar al estudiante (nombres, GitHub y arrastre) desde la lista de entregas de una evaluacion
+
+### Changed
+- Dialogos con scrollbar-gutter estable y espacio reservado para los errores del formulario de entrega
+
 ## [0.4.0] - 2026-10-26
 
 ### Added
