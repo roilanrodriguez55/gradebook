@@ -2,11 +2,33 @@ export type SubmissionStatus = "pendiente" | "entregado" | "no_entrego" | "tardi
 
 export type DownloadStatus = "sin_descargar" | "descargando" | "ok" | "error";
 
+export interface Course {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
 export interface Group {
   id: number;
   name: string;
   period: string | null;
   archived: number;
+  course_id: number | null;
+  created_at: string;
+}
+
+export interface Enrollment {
+  id: number;
+  student_id: number;
+  group_id: number;
+  promoted_to_group_id: number | null;
+  created_at: string;
+}
+
+export interface Carry {
+  id: number;
+  student_id: number;
+  group_subject_id: number;
   created_at: string;
 }
 
@@ -33,6 +55,17 @@ export interface Student {
   last_names: string;
   github_user: string | null;
   created_at: string;
+}
+
+export interface StudentInGroup extends Student {
+  promoted_to_group_id: number | null;
+}
+
+export interface CarryOption {
+  group_subject_id: number;
+  subject_name: string;
+  group_name: string;
+  course_name: string | null;
 }
 
 export interface Evaluation {

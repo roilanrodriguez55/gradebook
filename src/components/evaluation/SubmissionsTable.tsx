@@ -22,6 +22,7 @@ import type { DownloadStatus, Student, Submission, SubmissionStatus } from "../.
 import { validateGrade } from "../../lib/grade";
 import { errorMessage } from "../../lib/errorMessage";
 import { normalizeGithubUrl } from "../../lib/repoUrl";
+import { FILTERS, matchesFilter, type FilterKey } from "../../lib/submissionFilter";
 import { isDelivered } from "../../lib/submissionStatus";
 import { Badge, type BadgeTone } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -50,6 +51,7 @@ interface TableRow extends SubmissionRow {
 interface TableMeta {
   gradeMin: number;
   gradeMax: number;
+  carrierIds: Set<number>;
   onSave: SaveSubmission;
   downloading: boolean;
   onDownload: (row: SubmissionRow) => Promise<void>;
@@ -82,34 +84,6 @@ const DOWNLOAD_META: Record<DownloadStatus, { label: string; tone: BadgeTone; Ic
   ok: { label: "Descargado", tone: "accent", Icon: Check, spin: false },
   error: { label: "Error", tone: "danger", Icon: AlertTriangle, spin: false },
 };
-
-type FilterKey = "todos" | "pendientes" | "entregados" | "tardias" | "no_entrego" | "sin_calificar";
-
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "todos", label: "Todos" },
-  { key: "pendientes", label: "Pendientes" },
-  { key: "entregados", label: "Entregados" },
-  { key: "tardias", label: "Tardias" },
-  { key: "no_entrego", label: "No entregaron" },
-  { key: "sin_calificar", label: "Sin calificar" },
-];
-
-function matchesFilter(submission: Submission, filter: FilterKey): boolean {
-  switch (filter) {
-    case "todos":
-      return true;
-    case "pendientes":
-      return submission.status === "pendiente";
-    case "entregados":
-      return submission.status === "entregado";
-    case "tardias":
-      return submission.status === "tardia";
-    case "no_entrego":
-      return submission.status === "no_entrego";
-    case "sin_calificar":
-      return isDelivered(submission) && submission.grade === null;
-  }
-}
 
 function StatusBadge({ status }: { status: SubmissionStatus }) {
   const meta = STATUS_META[status];
@@ -378,14 +352,31 @@ interface SubmissionsTableProps {
   gradeMin: number;
   gradeMax: number;
   onSave: SaveSubmission;
+  // Estudiantes que arrastran la asignatura de esta evaluacion.
+  carrierIds: Set<number>;
   // Hay una descarga en curso: las acciones de descarga por fila quedan deshabilitadas.
   downloading: boolean;
   onDownload: (row: SubmissionRow) => Promise<void>;
+  filter: FilterKey;
+  onFilterChange: (filter: FilterKey) => void;
+  onPasteStudents: () => void;
+  onAddStudent: () => void;
 }
 
-export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading, onDownload }: SubmissionsTableProps) {
+export function SubmissionsTable({
+  rows,
+  gradeMin,
+  gradeMax,
+  carrierIds,
+  onSave,
+  downloading,
+  onDownload,
+  filter,
+  onFilterChange,
+  onPasteStudents,
+  onAddStudent,
+}: SubmissionsTableProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterKey>("todos");
 
   const sorted = useMemo(
     () =>
@@ -423,11 +414,13 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
         cell: (info) => {
           const { student, submission } = info.row.original;
           const comment = (submission.comment ?? "").trim();
+          const isCarrier = metaOf(info.table).carrierIds.has(student.id);
           return (
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate">
                 {student.first_names} {student.last_names}
               </span>
+              {isCarrier && <Badge tone="danger">Arrastre</Badge>}
               {comment !== "" && (
                 <span title={comment} className="shrink-0">
                   <MessageSquare size={12} aria-label="Tiene comentario" className="text-accent" />
@@ -488,29 +481,37 @@ export function SubmissionsTable({ rows, gradeMin, gradeMax, onSave, downloading
     getCoreRowModel: getCoreRowModel(),
     autoResetAll: false,
     getRowId: (row) => String(row.submission.id),
-    meta: { gradeMin, gradeMax, onSave, downloading, onDownload } satisfies TableMeta,
+    meta: { gradeMin, gradeMax, carrierIds, onSave, downloading, onDownload } satisfies TableMeta,
   });
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
-          <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar estudiante"
-            aria-label="Buscar estudiante"
-            className="w-full pl-8"
-          />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative w-80 shrink-0">
+            <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar estudiante"
+              aria-label="Buscar estudiante"
+              className="pl-8"
+            />
+          </div>
+          <Select value={filter} onChange={(e) => onFilterChange(e.target.value as FilterKey)} aria-label="Filtrar entregas" className="w-auto! shrink-0">
+            {FILTERS.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </Select>
         </div>
-        <Select value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)} aria-label="Filtrar entregas" className="w-44">
-          {FILTERS.map((f) => (
-            <option key={f.key} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </Select>
+        <div className="flex gap-2">
+          <Button onClick={onPasteStudents}>Pegar lista</Button>
+          <Button variant="primary" onClick={onAddStudent}>
+            + Estudiante
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-line bg-surface">

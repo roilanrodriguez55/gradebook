@@ -1,16 +1,18 @@
 import { Archive, ArchiveRestore, FolderOpen, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import * as courses from "../db/courses";
 import * as groupSubjects from "../db/groupSubjects";
 import * as groups from "../db/groups";
 import * as students from "../db/students";
 import * as subjects from "../db/subjects";
-import type { Group, Student, Subject } from "../db/types";
+import type { Course, Group, Student, StudentInGroup, Subject } from "../db/types";
 import { useDataVersion } from "../context/DataVersionContext";
 import { AddSubjectDialog } from "../components/dialogs/AddSubjectDialog";
 import { EvaluationFormDialog } from "../components/dialogs/EvaluationFormDialog";
 import { GroupFormDialog } from "../components/dialogs/GroupFormDialog";
 import { PasteStudentsDialog } from "../components/dialogs/PasteStudentsDialog";
+import { PromoteStudentsDialog } from "../components/dialogs/PromoteStudentsDialog";
 import { SubjectSettingsDialog } from "../components/dialogs/SubjectSettingsDialog";
 import { StudentFormDialog } from "../components/dialogs/StudentFormDialog";
 import { StudentTable } from "../components/StudentTable";
@@ -29,17 +31,23 @@ interface SubjectChip {
 
 interface GroupPage {
   group: Group;
+  course: Course | null;
   chips: SubjectChip[];
-  students: Student[];
+  students: StudentInGroup[];
+  carryCounts: Map<number, number>;
+  groupNames: Map<number, string>;
 }
 
 async function loadGroupPage(groupId: number): Promise<GroupPage | null> {
   const group = await groups.get(groupId);
   if (!group) return null;
-  const [links, allSubjects, groupStudents] = await Promise.all([
+  const [course, links, allSubjects, groupStudents, carryCounts, allGroups] = await Promise.all([
+    group.course_id === null ? Promise.resolve(null) : courses.get(group.course_id),
     groupSubjects.listByGroup(groupId),
     subjects.list(),
     students.listByGroup(groupId),
+    students.carryCountsByGroup(groupId),
+    groups.list(true),
   ]);
   const byId = new Map(allSubjects.map((s) => [s.id, s]));
   const chips: SubjectChip[] = [];
@@ -47,7 +55,8 @@ async function loadGroupPage(groupId: number): Promise<GroupPage | null> {
     const subject = byId.get(link.subject_id);
     if (subject) chips.push({ linkId: link.id, subject });
   }
-  return { group, chips, students: groupStudents };
+  const groupNames = new Map(allGroups.map((g) => [g.id, g.name]));
+  return { group, course, chips, students: groupStudents, carryCounts, groupNames };
 }
 
 type StudentDialog = { mode: "new" } | { mode: "edit"; student: Student } | null;
@@ -74,6 +83,8 @@ export default function Group() {
   const [studentDialog, setStudentDialog] = useState<StudentDialog>(null);
   const [pasting, setPasting] = useState(false);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [promotingIds, setPromotingIds] = useState<number[] | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (pageState.error !== null) return <LoadError message={pageState.error} onRetry={pageState.reload} />;
@@ -82,7 +93,7 @@ export default function Group() {
     return <p className="text-muted">Grupo no encontrado.</p>;
   }
 
-  const { group, chips, students: groupStudents } = page;
+  const { group, course, chips, students: groupStudents, carryCounts, groupNames } = page;
   const isArchived = group.archived === 1;
 
   // Ejecuta una mutacion: muestra el error en toast y siempre recarga los datos.
@@ -120,7 +131,7 @@ export default function Group() {
   function deleteStudent() {
     if (!deletingStudent) return;
     const studentId = deletingStudent.id;
-    void mutate(() => students.remove(studentId), () => setDeletingStudent(null));
+    void mutate(() => students.removeFromGroup(studentId, groupId), () => setDeletingStudent(null));
   }
 
   return (
@@ -131,7 +142,10 @@ export default function Group() {
             <h1 className="truncate text-xl font-semibold">{group.name}</h1>
             {isArchived && <Badge>Archivado</Badge>}
           </div>
-          <p className="text-muted">{group.period ?? "Sin periodo"}</p>
+          <p className="text-muted">
+            {group.period ?? "Sin periodo"}
+            {course && ` · ${course.name}`}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setEditingGroup(true)} disabled={busy}>
@@ -210,10 +224,15 @@ export default function Group() {
         <h2 className="font-semibold">Estudiantes ({groupStudents.length})</h2>
         <StudentTable
           students={groupStudents}
+          carryCounts={carryCounts}
+          groupNames={groupNames}
+          selectedIds={selectedIds}
+          onSelectedIdsChange={setSelectedIds}
           onAdd={() => setStudentDialog({ mode: "new" })}
           onPaste={() => setPasting(true)}
           onEdit={(student) => setStudentDialog({ mode: "edit", student })}
           onDelete={(student) => setDeletingStudent(student)}
+          onPromote={(ids) => setPromotingIds(ids)}
         />
       </section>
 
@@ -283,15 +302,24 @@ export default function Group() {
 
       {pasting && <PasteStudentsDialog groupId={group.id} onClose={() => setPasting(false)} />}
 
+      {promotingIds !== null && (
+        <PromoteStudentsDialog
+          fromGroup={group}
+          studentIds={promotingIds}
+          onClose={() => setPromotingIds(null)}
+        />
+      )}
+
       <ConfirmDialog
         open={deletingStudent !== null}
-        title="Eliminar estudiante"
+        title="Quitar del grupo"
         message={
           <>
-            Se eliminara a {deletingStudent?.first_names} {deletingStudent?.last_names} junto con sus entregas.
+            Se quitara a {deletingStudent?.first_names} {deletingStudent?.last_names} de este grupo y se perderan sus
+            entregas y notas aqui. Sus matriculas en otros grupos no cambian.
           </>
         }
-        confirmLabel="Eliminar"
+        confirmLabel="Quitar del grupo"
         danger
         busy={busy}
         onConfirm={deleteStudent}

@@ -3,6 +3,8 @@ import { Download, FileText, FolderOpen, Pencil, Trash2, Users } from "lucide-re
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { EvaluationFormDialog } from "../components/dialogs/EvaluationFormDialog";
+import { PasteStudentsDialog } from "../components/dialogs/PasteStudentsDialog";
+import { StudentFormDialog } from "../components/dialogs/StudentFormDialog";
 import PdfExportDialog from "../components/pdf/PdfExportDialog";
 import { SubmissionsTable, type SaveSubmission, type SubmissionRow } from "../components/evaluation/SubmissionsTable";
 import { Button } from "../components/ui/Button";
@@ -29,6 +31,7 @@ import {
 } from "../lib/download";
 import { formatDueDate } from "../lib/dueDate";
 import { errorMessage } from "../lib/errorMessage";
+import type { FilterKey } from "../lib/submissionFilter";
 import { isDelivered } from "../lib/submissionStatus";
 import { useLoadState } from "../lib/useLoad";
 
@@ -38,6 +41,7 @@ interface EvaluationPage {
   group: Group;
   students: Student[];
   rows: SubmissionRow[];
+  carrierIds: Set<number>;
 }
 
 async function loadEvaluationPage(id: number): Promise<EvaluationPage | null> {
@@ -45,20 +49,21 @@ async function loadEvaluationPage(id: number): Promise<EvaluationPage | null> {
   if (!evaluation) return null;
   const link = await groupSubjects.get(evaluation.group_subject_id);
   if (!link) return null;
-  const [group, subject, groupStudents, subs] = await Promise.all([
+  const [group, subject, evaluationStudents, subs, carrierIds] = await Promise.all([
     groups.get(link.group_id),
     subjects.get(link.subject_id),
-    students.listByGroup(link.group_id),
+    students.listByEvaluation(id),
     submissions.listByEvaluation(id),
+    students.carrierIdsByEvaluation(id),
   ]);
   if (!group || !subject) return null;
-  const studentById = new Map(groupStudents.map((s) => [s.id, s]));
+  const studentById = new Map(evaluationStudents.map((s) => [s.id, s]));
   const rows: SubmissionRow[] = [];
   for (const submission of subs) {
     const student = studentById.get(submission.student_id);
     if (student) rows.push({ submission, student });
   }
-  return { evaluation, subject, group, students: groupStudents, rows };
+  return { evaluation, subject, group, students: evaluationStudents, rows, carrierIds };
 }
 
 function ProgressStat({ label, done, total }: { label: string; done: number; total: number }) {
@@ -94,6 +99,10 @@ export default function Evaluation() {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [pasting, setPasting] = useState(false);
+  // Filtro de la tabla de entregas. Tambien es el filtro inicial del PDF.
+  const [filter, setFilter] = useState<FilterKey>("todos");
   const [busy, setBusy] = useState(false);
   // Progreso de la descarga en curso (una a la vez). Si la pantalla se monta con una descarga activa,
   // el progreso se ve como indeterminado hasta que cambian los datos. La guardia real vive en download.ts.
@@ -302,9 +311,13 @@ export default function Evaluation() {
           title="Este grupo no tiene estudiantes"
           description="Agrega estudiantes al grupo para ver sus entregas aqui."
           action={
-            <Button variant="primary" onClick={() => navigate(`/grupo/${group.id}`)}>
-              Ir al grupo
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="primary" onClick={() => setPasting(true)}>
+                Pegar lista
+              </Button>
+              <Button onClick={() => setAddingStudent(true)}>+ Estudiante</Button>
+              <Button onClick={() => navigate(`/grupo/${group.id}`)}>Ir al grupo</Button>
+            </div>
           }
         />
       ) : (
@@ -349,9 +362,14 @@ export default function Evaluation() {
             rows={rows}
             gradeMin={subject.grade_min}
             gradeMax={subject.grade_max}
+            carrierIds={page.carrierIds}
             onSave={saveSubmission}
             downloading={downloading !== null}
             onDownload={(row) => runDownloads([row])}
+            filter={filter}
+            onFilterChange={setFilter}
+            onPasteStudents={() => setPasting(true)}
+            onAddStudent={() => setAddingStudent(true)}
           />
         </>
       )}
@@ -364,7 +382,15 @@ export default function Evaluation() {
         />
       )}
 
-      <PdfExportDialog evaluationId={evaluation.id} open={exporting} onClose={() => setExporting(false)} />
+      {addingStudent && <StudentFormDialog groupId={group.id} onClose={() => setAddingStudent(false)} />}
+      {pasting && <PasteStudentsDialog groupId={group.id} onClose={() => setPasting(false)} />}
+
+      <PdfExportDialog
+        evaluationId={evaluation.id}
+        open={exporting}
+        initialFilter={filter}
+        onClose={() => setExporting(false)}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

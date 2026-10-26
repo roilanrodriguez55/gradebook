@@ -1,14 +1,40 @@
-import { Plus, Users } from "lucide-react";
+import { BookOpen, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDataVersion } from "../context/DataVersionContext";
-import { loadGroupViews } from "../lib/queries";
+import { loadGroupViews, type GroupView } from "../lib/queries";
 import { useLoadState } from "../lib/useLoad";
+import { CoursesDialog } from "../components/dialogs/CoursesDialog";
 import { GroupFormDialog } from "../components/dialogs/GroupFormDialog";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { LoadError } from "../components/ui/LoadError";
+
+interface CourseSection {
+  key: string;
+  name: string;
+  views: GroupView[];
+}
+
+// Cursos por nombre; los grupos sin curso van al final bajo "Sin curso".
+function groupByCourse(views: GroupView[]): CourseSection[] {
+  const byCourse = new Map<number, CourseSection>();
+  for (const gv of views) {
+    if (gv.course === null) continue;
+    const section = byCourse.get(gv.course.id) ?? {
+      key: `curso-${gv.course.id}`,
+      name: gv.course.name,
+      views: [],
+    };
+    section.views.push(gv);
+    byCourse.set(gv.course.id, section);
+  }
+  const sections = [...byCourse.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const noCourse = views.filter((gv) => gv.course === null);
+  if (noCourse.length > 0) sections.push({ key: "sin-curso", name: "Sin curso", views: noCourse });
+  return sections;
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -16,15 +42,22 @@ export default function Home() {
   const viewsState = useLoadState(() => loadGroupViews(false), [version]);
   const views = viewsState.data;
   const [creating, setCreating] = useState(false);
+  const [managingCourses, setManagingCourses] = useState(false);
 
   return (
     <>
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">Grupos</h1>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          <Plus size={14} />
-          Nuevo grupo
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setManagingCourses(true)}>
+            <BookOpen size={14} />
+            Cursos
+          </Button>
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            <Plus size={14} />
+            Nuevo grupo
+          </Button>
+        </div>
       </header>
 
       {viewsState.error !== null && <LoadError message={viewsState.error} onRetry={viewsState.reload} />}
@@ -42,39 +75,44 @@ export default function Home() {
         />
       )}
 
-      {views && views.length > 0 && (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {views.map((gv) => (
-            <li key={gv.group.id}>
-              <Link
-                to={`/grupo/${gv.group.id}`}
-                className="flex h-full flex-col gap-3 rounded-lg border border-line bg-surface p-4 hover:bg-hover"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{gv.group.name}</p>
-                    <p className="text-muted">{gv.group.period ?? "Sin periodo"}</p>
-                  </div>
-                  <span className="shrink-0 text-muted">
-                    {gv.studentCount} {gv.studentCount === 1 ? "estudiante" : "estudiantes"}
-                  </span>
-                </div>
-                {gv.subjects.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {gv.subjects.map((sv) => (
-                      <Badge key={sv.id} tone="accent">
-                        {sv.subject.name}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted">Sin asignaturas</p>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      {views &&
+        views.length > 0 &&
+        groupByCourse(views).map((section) => (
+          <section key={section.key} className="mb-6 flex flex-col gap-3">
+            <h2 className="font-semibold text-muted">{section.name}</h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {section.views.map((gv) => (
+                <li key={gv.group.id}>
+                  <Link
+                    to={`/grupo/${gv.group.id}`}
+                    className="flex h-full flex-col gap-3 rounded-lg border border-line bg-surface p-4 hover:bg-hover"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{gv.group.name}</p>
+                        <p className="text-muted">{gv.group.period ?? "Sin periodo"}</p>
+                      </div>
+                      <span className="shrink-0 text-muted">
+                        {gv.studentCount} {gv.studentCount === 1 ? "estudiante" : "estudiantes"}
+                      </span>
+                    </div>
+                    {gv.subjects.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {gv.subjects.map((sv) => (
+                          <Badge key={sv.id} tone="accent">
+                            {sv.subject.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted">Sin asignaturas</p>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
 
       {creating && (
         <GroupFormDialog
@@ -82,6 +120,8 @@ export default function Home() {
           onCreated={(group) => navigate(`/grupo/${group.id}`)}
         />
       )}
+
+      {managingCourses && <CoursesDialog onClose={() => setManagingCourses(false)} />}
     </>
   );
 }

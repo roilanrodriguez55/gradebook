@@ -2,6 +2,19 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.4.0] - 2026-10-26
+
+### Added
+- Cursos creables por el usuario y asignables a cada grupo, con el inicio agrupado por curso
+- Promocion de estudiantes entre grupos y cursos con seleccion multiple, conservando el historial
+- Arrastre: un estudiante puede cursar varias asignaturas de grupos anteriores
+- Reporte PDF de cada evaluacion segun filtro (entregados, no entregaron, tardias, etc.)
+- Crear estudiantes y pegar listas desde la pantalla de evaluacion
+- En la tabla de estudiantes se selecciona haciendo clic en cualquier parte de la fila, y un boton alterna entre Seleccionar todos y Deseleccionar
+
+### Changed
+- Los estudiantes pasan a matricularse por grupo (migracion automatica 004)
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

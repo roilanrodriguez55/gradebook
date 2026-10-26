@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 6,
   },
+  empty: { marginTop: 18, fontSize: 10, color: MUTED },
   notRow: {
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
@@ -107,7 +108,9 @@ export function EvaluationReport({ data, options, generatedAt }: Props) {
   const grupo = data.periodo ? `${data.grupo} (${data.periodo})` : data.grupo;
   const fechaLimite = formatDate(data.fechaLimite);
   const stats = data.estadisticas;
-  const showNotDelivered = options.includeNotDelivered && data.noEntregaron.length > 0;
+  const showNotDelivered = data.noEntregaron.length > 0;
+  const showTable = data.filas.length > 0;
+  const nothingToShow = !showTable && !showNotDelivered;
 
   return (
     <Document title={`Notas - ${data.titulo}`} author={data.profesor ?? undefined}>
@@ -122,32 +125,36 @@ export function EvaluationReport({ data, options, generatedAt }: Props) {
           </Text>
           {data.profesor ? <Text style={styles.meta}>{`Profesor: ${data.profesor}`}</Text> : null}
           {fechaLimite ? <Text style={styles.meta}>{`Fecha limite: ${fechaLimite}`}</Text> : null}
+          {data.filtroEtiqueta ? <Text style={styles.meta}>{`Filtro: ${data.filtroEtiqueta}`}</Text> : null}
         </View>
 
-        <View style={styles.table}>
-          <View style={styles.headerRow} fixed>
-            <Text style={[styles.headerText, styles.colN]}>#</Text>
-            <Text style={[styles.headerText, styles.colName]}>Nombres y apellidos</Text>
-            <Text style={[styles.headerText, styles.colGrade]}>Nota</Text>
-            {options.includeComments ? (
-              <Text style={[styles.headerText, styles.colComment]}>Comentario</Text>
-            ) : null}
-          </View>
-
-          {data.filas.map((row) => (
-            <View key={row.n} style={styles.row} wrap={false}>
-              <Text style={styles.colN}>{String(row.n)}</Text>
-              <Text style={styles.colName}>
-                {row.nombre}
-                {row.tardia ? <Text style={styles.tag}>  Tardia</Text> : null}
-              </Text>
-              <Text style={styles.colGrade}>{formatNota(row)}</Text>
+        {showTable ? (
+          <View style={styles.table}>
+            <View style={styles.headerRow} fixed>
+              <Text style={[styles.headerText, styles.colN]}>#</Text>
+              <Text style={[styles.headerText, styles.colName]}>Nombres y apellidos</Text>
+              <Text style={[styles.headerText, styles.colGrade]}>Nota</Text>
               {options.includeComments ? (
-                <Text style={styles.colComment}>{row.comentario}</Text>
+                <Text style={[styles.headerText, styles.colComment]}>Comentario</Text>
               ) : null}
             </View>
-          ))}
-        </View>
+
+            {data.filas.map((row) => (
+              <View key={row.n} style={styles.row} wrap={false}>
+                <Text style={styles.colN}>{String(row.n)}</Text>
+                <Text style={styles.colName}>
+                  {row.nombre}
+                  {row.arrastre ? " (arrastre)" : ""}
+                  {row.tardia ? <Text style={styles.tag}>  Tardia</Text> : null}
+                </Text>
+                <Text style={styles.colGrade}>{formatNota(row)}</Text>
+                {options.includeComments ? (
+                  <Text style={styles.colComment}>{row.comentario}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.summary} wrap={false}>
           <View style={styles.summaryRow}>
@@ -169,6 +176,8 @@ export function EvaluationReport({ data, options, generatedAt }: Props) {
             </Text>
           </View>
         </View>
+
+        {nothingToShow ? <Text style={styles.empty}>Sin estudiantes para este filtro</Text> : null}
 
         {showNotDelivered ? (
           <View>

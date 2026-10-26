@@ -1,4 +1,5 @@
 import type { Evaluation, Student, Submission } from "../db/types";
+import { FILTERS, matchesFilter, type FilterKey } from "../lib/submissionFilter";
 
 export type SortBy = "alfabetico" | "nota";
 
@@ -12,12 +13,15 @@ export interface ReportInput {
   teacherName?: string | null;
   students: Student[];
   submissions: Submission[];
+  // Estudiantes que arrastran la asignatura de la evaluacion.
+  carrierIds?: Set<number>;
 }
 
 export interface ReportOptions {
   includeComments: boolean;
   includeNotDelivered: boolean;
   sortBy: SortBy;
+  filter: FilterKey;
 }
 
 export interface ReportRow {
@@ -27,6 +31,7 @@ export interface ReportRow {
   notaMax: number;
   comentario: string;
   tardia: boolean;
+  arrastre: boolean;
 }
 
 export interface ReportStats {
@@ -41,6 +46,8 @@ export interface ReportData {
   titulo: string;
   // Titulo de la evaluacion; `titulo` lleva el tema.
   descripcion: string;
+  // Etiqueta del filtro aplicado (ej. "Entregados"); null con "todos".
+  filtroEtiqueta: string | null;
   asignatura: string;
   grupo: string;
   periodo: string | null;
@@ -67,16 +74,23 @@ function compareStudents(a: Student, b: Student): number {
 // Funcion pura: arma los datos del informe a partir de la evaluacion, el grupo y las entregas.
 export function buildReportData(input: ReportInput, options: ReportOptions): ReportData {
   const submissionByStudent = new Map(input.submissions.map((s) => [s.student_id, s]));
+  const carrierIds = input.carrierIds ?? new Set<number>();
+  const filtered = options.filter !== "todos";
 
   const delivered: ReportRow[] = [];
   const notDelivered: string[] = [];
+  let total = 0;
 
   // Los estudiantes llegan ordenados por apellidos y nombres, y el sort es estable: el orden se conserva.
   for (const student of [...input.students].sort(compareStudents)) {
     const nombre = fullName(student);
     const submission = submissionByStudent.get(student.id);
+    const arrastre = carrierIds.has(student.id);
+    // Con un filtro activo, un estudiante sin entrega no cumple ningun filtro.
+    if (filtered && (!submission || !matchesFilter(submission, options.filter))) continue;
+    total++;
     if (!submission || !DELIVERED_STATUSES.has(submission.status)) {
-      notDelivered.push(nombre);
+      notDelivered.push(arrastre ? `${nombre} (arrastre)` : nombre);
       continue;
     }
     delivered.push({
@@ -86,6 +100,7 @@ export function buildReportData(input: ReportInput, options: ReportOptions): Rep
       notaMax: input.gradeMax,
       comentario: options.includeComments ? (submission.comment ?? "").trim() : "",
       tardia: submission.status === "tardia",
+      arrastre,
     });
   }
 
@@ -105,19 +120,21 @@ export function buildReportData(input: ReportInput, options: ReportOptions): Rep
     maxima: grades.length === 0 ? null : Math.max(...grades),
     minima: grades.length === 0 ? null : Math.min(...grades),
     entregaron: delivered.length,
-    total: input.students.length,
+    total,
   };
 
   return {
     titulo: input.evaluation.topic,
     descripcion: input.evaluation.title.trim(),
+    filtroEtiqueta: filtered ? (FILTERS.find((f) => f.key === options.filter)?.label ?? null) : null,
     asignatura: input.subjectName,
     grupo: input.groupName,
     periodo: input.groupPeriod,
     profesor: input.teacherName?.trim() || null,
     fechaLimite: input.evaluation.due_date,
     filas,
-    noEntregaron: options.includeNotDelivered ? notDelivered : [],
+    // Con un filtro activo la lista muestra los no entregados que lo cumplen, sin importar includeNotDelivered.
+    noEntregaron: filtered || options.includeNotDelivered ? notDelivered : [],
     estadisticas,
   };
 }

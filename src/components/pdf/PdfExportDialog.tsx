@@ -14,6 +14,7 @@ import type { Evaluation, Group, Student, Submission, Subject } from "../../db/t
 import { resolveSubjectFolder } from "../../lib/download";
 import { errorMessage } from "../../lib/errorMessage";
 import { sanitizeFolderName } from "../../lib/folderName";
+import { FILTERS, type FilterKey } from "../../lib/submissionFilter";
 import { useLoadState } from "../../lib/useLoad";
 import { buildReportData, type ReportOptions, type SortBy } from "../../pdf/buildReportData";
 import { EvaluationReport } from "../../pdf/EvaluationReport";
@@ -29,6 +30,8 @@ const PREVIEW_DEBOUNCE_MS = 300;
 interface Props {
   evaluationId: number;
   open: boolean;
+  // Filtro activo en la tabla de entregas. Es el valor inicial del filtro del PDF.
+  initialFilter: FilterKey;
   onClose: () => void;
 }
 
@@ -41,6 +44,12 @@ interface ReportSource {
   teacherName: string | null;
   students: Student[];
   submissions: Submission[];
+  carrierIds: Set<number>;
+}
+
+// Nombre del PDF. Con un filtro distinto de "todos" se agrega su clave (ej. Notas_Tema_entregados.pdf).
+function pdfFileName(folderName: string, filter: FilterKey): string {
+  return filter === "todos" ? `Notas_${folderName}.pdf` : `Notas_${folderName}_${filter}.pdf`;
 }
 
 // Genera el PDF con las opciones que se pasan. Se usa para la vista previa y para guardar.
@@ -55,6 +64,7 @@ function renderPdf(source: ReportSource, options: ReportOptions): Promise<Blob> 
       teacherName: source.teacherName,
       students: source.students,
       submissions: source.submissions,
+      carrierIds: source.carrierIds,
     },
     options,
   );
@@ -67,11 +77,12 @@ async function loadSource(evaluationId: number): Promise<ReportSource> {
   if (!evaluation) throw new Error(`Evaluacion ${evaluationId} no encontrada`);
   const link = await groupSubjects.get(evaluation.group_subject_id);
   if (!link) throw new Error(`Relacion ${evaluation.group_subject_id} no encontrada`);
-  const [group, subject, groupStudents, entregas, teacherName] = await Promise.all([
+  const [group, subject, evaluationStudents, entregas, carrierIds, teacherName] = await Promise.all([
     groups.get(link.group_id),
     subjects.get(link.subject_id),
-    students.listByGroup(link.group_id),
+    students.listByEvaluation(evaluationId),
     submissions.listByEvaluation(evaluationId),
+    students.carrierIdsByEvaluation(evaluationId),
     settings.get("teacher_name"),
   ]);
   if (!group) throw new Error(`Grupo ${link.group_id} no encontrado`);
@@ -83,12 +94,13 @@ async function loadSource(evaluationId: number): Promise<ReportSource> {
     gradeMax: subject.grade_max,
     group,
     teacherName: teacherName?.trim() || null,
-    students: groupStudents,
+    students: evaluationStudents,
     submissions: entregas,
+    carrierIds,
   };
 }
 
-export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }: Props) {
+export default function PdfExportDialog({ evaluationId, open: isOpen, initialFilter, onClose }: Props) {
   const toast = useToast();
   const sourceState = useLoadState(
     () => (isOpen ? loadSource(evaluationId) : Promise.resolve(null)),
@@ -99,6 +111,7 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
   const [includeComments, setIncludeComments] = useState(true);
   const [includeNotDelivered, setIncludeNotDelivered] = useState(true);
   const [sortBy, setSortBy] = useState<SortBy>("alfabetico");
+  const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [preview, setPreview] = useState<{ url: string; blob: Blob } | null>(null);
   // Carpeta de la asignatura elegida en este dialogo. Se ignora si es de otra asignatura.
   const [chosen, setChosen] = useState<{ subjectId: number; path: string } | null>(null);
@@ -110,6 +123,11 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
     source && chosen?.subjectId === source.subject.id ? chosen.path : (source?.subject.download_folder ?? null);
   const [destination, setDestination] = useState<string | null>(null);
 
+  // Cada vez que se abre el dialogo, el filtro del PDF vuelve al de la tabla.
+  useEffect(() => {
+    if (isOpen) setFilter(initialFilter);
+  }, [isOpen, initialFilter]);
+
   useEffect(() => {
     let cancelled = false;
     if (!folder || folderName === "") {
@@ -117,7 +135,7 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
       return;
     }
     join(folder, folderName)
-      .then((dir) => join(dir, `Notas_${folderName}.pdf`))
+      .then((dir) => join(dir, pdfFileName(folderName, filter)))
       .then((file) => {
         if (!cancelled) setDestination(file);
       })
@@ -127,13 +145,13 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
     return () => {
       cancelled = true;
     };
-  }, [folder, folderName]);
+  }, [folder, folderName, filter]);
 
   useEffect(() => {
     if (!isOpen || !source) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      renderPdf(source, { includeComments, includeNotDelivered, sortBy })
+      renderPdf(source, { includeComments, includeNotDelivered, sortBy, filter })
         .then((blob) => {
           if (!cancelled) setPreview({ url: URL.createObjectURL(blob), blob });
         })
@@ -145,7 +163,7 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [isOpen, source, includeComments, includeNotDelivered, sortBy, toast]);
+  }, [isOpen, source, includeComments, includeNotDelivered, sortBy, filter, toast]);
 
   // Libera la URL de la vista previa anterior cuando se reemplaza o al cerrar.
   useEffect(() => {
@@ -167,9 +185,9 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
       setChosen({ subjectId: source.subject.id, path: base });
       const dir = await join(base, folderName);
       // Genera el PDF con las opciones actuales: la vista previa puede estar desactualizada.
-      const blob = await renderPdf(source, { includeComments, includeNotDelivered, sortBy });
+      const blob = await renderPdf(source, { includeComments, includeNotDelivered, sortBy, filter });
       await mkdir(dir, { recursive: true });
-      const file = await join(dir, `Notas_${folderName}.pdf`);
+      const file = await join(dir, pdfFileName(folderName, filter));
       await writeFile(file, new Uint8Array(await blob.arrayBuffer()));
       toast.show(`PDF guardado en ${file}`, {
         label: "Abrir carpeta",
@@ -215,6 +233,15 @@ export default function PdfExportDialog({ evaluationId, open: isOpen, onClose }:
               <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
                 <option value="alfabetico">Alfabetico</option>
                 <option value="nota">Por nota (mayor a menor)</option>
+              </Select>
+            </Field>
+            <Field label="Filtro">
+              <Select value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)}>
+                {FILTERS.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>

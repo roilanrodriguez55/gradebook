@@ -31,13 +31,21 @@ export async function create(
   );
   try {
     const db = await getDb();
+    // Matriculados del grupo que no fueron promovidos, mas los que arrastran esta asignatura.
     await db.execute(
       `INSERT INTO submissions (evaluation_id, student_id, status)
-       SELECT ?, s.id, 'pendiente'
-       FROM students s
-       JOIN group_subjects gs ON gs.group_id = s.group_id
-       WHERE gs.id = ?`,
-      [id, groupSubjectId],
+       SELECT ?, t.student_id, 'pendiente'
+       FROM (
+         SELECT en.student_id
+         FROM enrollments en
+         JOIN group_subjects gs ON gs.group_id = en.group_id
+         WHERE gs.id = ? AND en.promoted_to_group_id IS NULL
+         UNION
+         SELECT c.student_id
+         FROM carries c
+         WHERE c.group_subject_id = ?
+       ) t`,
+      [id, groupSubjectId, groupSubjectId],
     );
   } catch (err) {
     // Sin transacciones entre llamadas: deshace la evaluacion si fallo la creacion de entregas.
