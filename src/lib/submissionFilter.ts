@@ -7,7 +7,7 @@ export const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "todos", label: "Todos" },
   { key: "pendientes", label: "Pendientes" },
   { key: "entregados", label: "Entregados" },
-  { key: "tardias", label: "Tardias" },
+  { key: "tardias", label: "Tardías" },
   { key: "no_entrego", label: "No entregaron" },
   { key: "sin_calificar", label: "Sin calificar" },
 ];

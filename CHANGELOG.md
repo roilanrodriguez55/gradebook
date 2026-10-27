@@ -2,6 +2,18 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.6.0] - 2026-10-27
+
+### Added
+- Vista previa del reporte a pantalla completa en HTML (separada de la generacion del PDF) con zoom nitido (botones, Ctrl+rueda y ajustar al ancho), boton para salir y las opciones y Guardar PDF en la barra superior
+
+### Changed
+- Reporte de notas reestructurado con variantes segun el filtro (notas o estado) y secciones de pendientes y no entregaron
+- Generar PDF abre directo la vista previa con el filtro de la tabla de entregas, sin dialogo ni selector de filtro
+- El PDF solo se genera al pulsar Guardar PDF; el resumen del PDF va antes de la tabla con tarjetas de ancho fijo
+- Textos del PDF y de la vista previa con acentos
+- Opciones de la vista previa se deshabilitan cuando no aplican al filtro
+
 ## [0.5.0] - 2026-10-26
 
 ### Added

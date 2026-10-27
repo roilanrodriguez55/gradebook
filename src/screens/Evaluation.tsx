@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { EvaluationFormDialog } from "../components/dialogs/EvaluationFormDialog";
 import { PasteStudentsDialog } from "../components/dialogs/PasteStudentsDialog";
 import { StudentFormDialog } from "../components/dialogs/StudentFormDialog";
-import PdfExportDialog from "../components/pdf/PdfExportDialog";
+import PdfPreviewScreen from "../components/pdf/PdfPreviewScreen";
 import { SubmissionsTable, type SaveSubmission, type SubmissionRow } from "../components/evaluation/SubmissionsTable";
 import { Button } from "../components/ui/Button";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
@@ -390,10 +390,10 @@ export default function Evaluation() {
       )}
       {pasting && <PasteStudentsDialog groupId={group.id} onClose={() => setPasting(false)} />}
 
-      <PdfExportDialog
+      <PdfPreviewScreen
         evaluationId={evaluation.id}
         open={exporting}
-        initialFilter={filter}
+        filter={filter}
         onClose={() => setExporting(false)}
       />
 
