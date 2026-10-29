@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState, type FormEvent } from "react";
+import * as groupSubjects from "../../db/groupSubjects";
 import * as subjects from "../../db/subjects";
 import type { Subject } from "../../db/types";
 import { useDataVersion } from "../../context/DataVersionContext";
@@ -12,13 +13,17 @@ import { Input } from "../ui/Input";
 
 interface SubjectSettingsDialogProps {
   subject: Subject;
+  // Vinculo grupo-asignatura: la carpeta de descargas es propia de cada grupo.
+  linkId: number;
+  downloadFolder: string | null;
+  groupName: string;
   onClose: () => void;
 }
 
-export function SubjectSettingsDialog({ subject, onClose }: SubjectSettingsDialogProps) {
+export function SubjectSettingsDialog({ subject, linkId, downloadFolder, groupName, onClose }: SubjectSettingsDialogProps) {
   const [min, setMin] = useState(String(subject.grade_min));
   const [max, setMax] = useState(String(subject.grade_max));
-  const [folder, setFolder] = useState<string | null>(subject.download_folder);
+  const [folder, setFolder] = useState<string | null>(downloadFolder);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { refresh } = useDataVersion();
@@ -34,7 +39,7 @@ export function SubjectSettingsDialog({ subject, onClose }: SubjectSettingsDialo
       const picked = await open({
         directory: true,
         multiple: false,
-        title: "Elegir carpeta de descargas de la asignatura",
+        title: "Elegir carpeta de descargas del grupo",
       });
       if (typeof picked === "string") setFolder(picked);
     } catch (err) {
@@ -52,8 +57,8 @@ export function SubjectSettingsDialog({ subject, onClose }: SubjectSettingsDialo
       if (minValue !== subject.grade_min || maxValue !== subject.grade_max) {
         await subjects.updateScale(subject.id, minValue, maxValue);
       }
-      if (folder !== subject.download_folder) {
-        await subjects.setDownloadFolder(subject.id, folder);
+      if (folder !== downloadFolder) {
+        await groupSubjects.setDownloadFolder(linkId, folder);
       }
       refresh();
       onClose();
@@ -87,8 +92,8 @@ export function SubjectSettingsDialog({ subject, onClose }: SubjectSettingsDialo
             {folder ?? "Sin carpeta definida"}
           </p>
           <p className="-mt-1 text-xs text-muted">
-            Aqui se crea una carpeta por tema con los repositorios de los estudiantes y el PDF de notas. Se usa para
-            todos los grupos de esta asignatura.
+            Aqui se crea una carpeta por tema con los repositorios de los estudiantes y el PDF de notas. Solo se usa
+            para {subject.name} en el grupo {groupName}.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void chooseFolder()} disabled={busy}>

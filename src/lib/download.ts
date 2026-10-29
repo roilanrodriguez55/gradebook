@@ -3,9 +3,9 @@ import { join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists } from "@tauri-apps/plugin-fs";
 import * as settings from "../db/settings";
-import * as subjects from "../db/subjects";
+import * as groupSubjects from "../db/groupSubjects";
 import * as submissions from "../db/submissions";
-import type { Evaluation, Student, Submission, Subject } from "../db/types";
+import type { Evaluation, GroupSubject, Student, Submission } from "../db/types";
 import { errorMessage } from "./errorMessage";
 import { sanitizeFolderName, studentFolderName } from "./folderName";
 
@@ -55,27 +55,27 @@ export async function evaluationFolderPath(parent: string, topic: string): Promi
   return join(parent, topicFolderName(topic));
 }
 
-// Carpeta de descargas de la asignatura. Si no tiene, pide una y la guarda en la asignatura.
+// Carpeta de descargas de la asignatura en este grupo. Si no tiene, pide una y la guarda en el vinculo.
 // Devuelve null si el usuario cancela el selector.
-export async function resolveSubjectFolder(subject: Pick<Subject, "id" | "download_folder">): Promise<string | null> {
-  const saved = subject.download_folder?.trim() ?? "";
+export async function resolveSubjectFolder(link: Pick<GroupSubject, "id" | "download_folder">): Promise<string | null> {
+  const saved = link.download_folder?.trim() ?? "";
   if (saved !== "") return saved;
   const picked = await open({
     directory: true,
     multiple: false,
-    title: "Elegir carpeta de descargas de la asignatura",
+    title: "Elegir carpeta de descargas del grupo",
   });
   if (typeof picked !== "string") return null;
-  await subjects.setDownloadFolder(subject.id, picked);
+  await groupSubjects.setDownloadFolder(link.id, picked);
   return picked;
 }
 
-// Carpeta del tema dentro de la carpeta de la asignatura. Devuelve null si el usuario cancela el selector.
+// Carpeta del tema dentro de la carpeta de la asignatura del grupo. Devuelve null si el usuario cancela el selector.
 export async function resolveEvaluationFolder(
-  subject: Pick<Subject, "id" | "download_folder">,
+  link: Pick<GroupSubject, "id" | "download_folder">,
   topic: string,
 ): Promise<string | null> {
-  const parent = await resolveSubjectFolder(subject);
+  const parent = await resolveSubjectFolder(link);
   if (parent === null) return null;
   return evaluationFolderPath(parent, topic);
 }

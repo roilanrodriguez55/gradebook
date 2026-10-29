@@ -50,6 +50,12 @@ pub fn run() {
                         description: "courses_enrollments",
                         sql: include_str!("../migrations/004_courses_enrollments.sql"),
                         kind: MigrationKind::Up,
+                    },
+                    Migration {
+                        version: 5,
+                        description: "group_subject_download_folder",
+                        sql: include_str!("../migrations/005_group_subject_download_folder.sql"),
+                        kind: MigrationKind::Up,
                     }],
                 )
                 .build(),

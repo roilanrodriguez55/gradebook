@@ -65,13 +65,6 @@ export async function updateScale(id: number, min: number, max: number): Promise
   await db.execute("UPDATE subjects SET grade_min = ?, grade_max = ? WHERE id = ?", [min, max, id]);
 }
 
-// Carpeta donde se guardan los repos del tema y el PDF. Una cadena vacia la borra (queda null).
-export async function setDownloadFolder(id: number, path: string | null): Promise<void> {
-  const value = path?.trim() ? path.trim() : null;
-  const db = await getDb();
-  await db.execute("UPDATE subjects SET download_folder = ? WHERE id = ?", [value, id]);
-}
-
 export async function update(id: number, fields: Partial<Pick<Subject, "name">>): Promise<void> {
   await updateRow("subjects", id, fields, ["name"]);
 }

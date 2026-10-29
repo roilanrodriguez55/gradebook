@@ -37,7 +37,6 @@ export interface Subject {
   name: string;
   grade_min: number;
   grade_max: number;
-  download_folder: string | null;
   created_at: string;
 }
 
@@ -45,6 +44,7 @@ export interface GroupSubject {
   id: number;
   group_id: number;
   subject_id: number;
+  download_folder: string | null;
   created_at: string;
 }
 

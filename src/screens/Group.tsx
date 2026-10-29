@@ -27,6 +27,7 @@ import { useToast } from "../components/ui/useToast";
 interface SubjectChip {
   linkId: number;
   subject: Subject;
+  downloadFolder: string | null;
 }
 
 interface GroupPage {
@@ -53,7 +54,7 @@ async function loadGroupPage(groupId: number): Promise<GroupPage | null> {
   const chips: SubjectChip[] = [];
   for (const link of links) {
     const subject = byId.get(link.subject_id);
-    if (subject) chips.push({ linkId: link.id, subject });
+    if (subject) chips.push({ linkId: link.id, subject, downloadFolder: link.download_folder });
   }
   const groupNames = new Map(allGroups.map((g) => [g.id, g.name]));
   return { group, course, chips, students: groupStudents, carryCounts, groupNames };
@@ -77,7 +78,7 @@ export default function Group() {
   const [editingGroup, setEditingGroup] = useState(false);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [addingSubject, setAddingSubject] = useState(false);
-  const [configuringSubject, setConfiguringSubject] = useState<Subject | null>(null);
+  const [configuringSubject, setConfiguringSubject] = useState<SubjectChip | null>(null);
   const [creatingEvaluation, setCreatingEvaluation] = useState<SubjectChip | null>(null);
   const [unlinking, setUnlinking] = useState<SubjectChip | null>(null);
   const [studentDialog, setStudentDialog] = useState<StudentDialog>(null);
@@ -182,11 +183,11 @@ export default function Group() {
                   <span className="text-xs tabular-nums text-muted">
                     {chip.subject.grade_min}-{chip.subject.grade_max}
                   </span>
-                  {chip.subject.download_folder && (
+                  {chip.downloadFolder && (
                     <span
                       role="img"
                       aria-label="Tiene carpeta de descargas"
-                      title={chip.subject.download_folder}
+                      title={chip.downloadFolder}
                       className="flex text-muted"
                     >
                       <FolderOpen size={12} />
@@ -204,7 +205,7 @@ export default function Group() {
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => setConfiguringSubject(chip.subject)}
+                  onClick={() => setConfiguringSubject(chip)}
                   disabled={busy}
                   aria-label={`Configuracion de ${chip.subject.name}`}
                   title="Configuracion"
@@ -263,7 +264,13 @@ export default function Group() {
       )}
 
       {configuringSubject && (
-        <SubjectSettingsDialog subject={configuringSubject} onClose={() => setConfiguringSubject(null)} />
+        <SubjectSettingsDialog
+          subject={configuringSubject.subject}
+          linkId={configuringSubject.linkId}
+          downloadFolder={configuringSubject.downloadFolder}
+          groupName={group.name}
+          onClose={() => setConfiguringSubject(null)}
+        />
       )}
 
       {addingSubject && (

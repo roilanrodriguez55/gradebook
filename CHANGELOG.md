@@ -2,6 +2,12 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.7.0] - 2026-10-29
+
+### Changed
+- La carpeta de descargas ahora se configura por grupo y asignatura, ya no se comparte entre todos los grupos de la asignatura
+- Las carpetas existentes se copian a cada grupo al actualizar
+
 ## [0.6.0] - 2026-10-27
 
 ### Added

@@ -25,6 +25,13 @@ export async function create(input: { groupId: number; subjectId: number }): Pro
   return row;
 }
 
+// Carpeta donde se guardan los repos del tema y el PDF de este grupo. Una cadena vacia la borra (queda null).
+export async function setDownloadFolder(id: number, path: string | null): Promise<void> {
+  const value = path?.trim() ? path.trim() : null;
+  const db = await getDb();
+  await db.execute("UPDATE group_subjects SET download_folder = ? WHERE id = ?", [value, id]);
+}
+
 export async function remove(id: number): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM group_subjects WHERE id = ?", [id]);

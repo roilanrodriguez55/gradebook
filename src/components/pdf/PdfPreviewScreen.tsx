@@ -10,7 +10,7 @@ import * as settings from "../../db/settings";
 import * as students from "../../db/students";
 import * as subjects from "../../db/subjects";
 import * as submissions from "../../db/submissions";
-import type { Evaluation, Group, Student, Submission, Subject } from "../../db/types";
+import type { Evaluation, Group, GroupSubject, Student, Submission, Subject } from "../../db/types";
 import { resolveSubjectFolder } from "../../lib/download";
 import { errorMessage } from "../../lib/errorMessage";
 import { sanitizeFolderName } from "../../lib/folderName";
@@ -41,6 +41,7 @@ interface Props {
 interface ReportSource {
   evaluation: Evaluation;
   subject: Subject;
+  link: GroupSubject;
   subjectName: string;
   gradeMax: number;
   group: Group;
@@ -99,6 +100,7 @@ async function loadSource(evaluationId: number): Promise<ReportSource> {
   return {
     evaluation,
     subject,
+    link,
     subjectName: subject.name,
     gradeMax: subject.grade_max,
     group,
@@ -122,15 +124,15 @@ export default function PdfPreviewScreen({ evaluationId, open: isOpen, filter, o
   const [includeComments, setIncludeComments] = useState(true);
   const [includeNotDelivered, setIncludeNotDelivered] = useState(true);
   const [sortBy, setSortBy] = useState<SortBy>("alfabetico");
-  // Carpeta de la asignatura elegida en esta capa. Se ignora si es de otra asignatura.
-  const [chosen, setChosen] = useState<{ subjectId: number; path: string } | null>(null);
+  // Carpeta elegida en esta capa. Se ignora si es de otro vinculo grupo-asignatura.
+  const [chosen, setChosen] = useState<{ linkId: number; path: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [destination, setDestination] = useState<string | null>(null);
 
   const topic = source?.evaluation.topic ?? "";
   const folderName = sanitizeFolderName(topic);
   const folder =
-    source && chosen?.subjectId === source.subject.id ? chosen.path : (source?.subject.download_folder ?? null);
+    source && chosen?.linkId === source.link.id ? chosen.path : (source?.link.download_folder ?? null);
   const filterLabel = FILTERS.find((f) => f.key === filter)?.label ?? "Todos";
 
   const reportOptions = useMemo<ReportOptions>(
@@ -186,9 +188,9 @@ export default function PdfPreviewScreen({ evaluationId, open: isOpen, filter, o
     setSaving(true);
     try {
       // Si la asignatura no tiene carpeta, la pide y la guarda en la asignatura.
-      const base = await resolveSubjectFolder({ id: source.subject.id, download_folder: folder });
+      const base = await resolveSubjectFolder({ id: source.link.id, download_folder: folder });
       if (base === null) return;
-      setChosen({ subjectId: source.subject.id, path: base });
+      setChosen({ linkId: source.link.id, path: base });
       const dir = await join(base, folderName);
       const blob = await renderPdf(source, reportOptions);
       await mkdir(dir, { recursive: true });

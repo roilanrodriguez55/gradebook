@@ -19,7 +19,7 @@ import * as groups from "../db/groups";
 import * as students from "../db/students";
 import * as subjects from "../db/subjects";
 import * as submissions from "../db/submissions";
-import type { Evaluation as EvaluationRecord, Group, Student, Submission, Subject } from "../db/types";
+import type { Evaluation as EvaluationRecord, Group, GroupSubject, Student, Submission, Subject } from "../db/types";
 import { checkGit } from "../lib/git";
 import {
   downloadMany,
@@ -38,6 +38,7 @@ import { useLoadState } from "../lib/useLoad";
 interface EvaluationPage {
   evaluation: EvaluationRecord;
   subject: Subject;
+  link: GroupSubject;
   group: Group;
   students: Student[];
   rows: SubmissionRow[];
@@ -63,7 +64,7 @@ async function loadEvaluationPage(id: number): Promise<EvaluationPage | null> {
     const student = studentById.get(submission.student_id);
     if (student) rows.push({ submission, student });
   }
-  return { evaluation, subject, group, students: evaluationStudents, rows, carrierIds };
+  return { evaluation, subject, link, group, students: evaluationStudents, rows, carrierIds };
 }
 
 function ProgressStat({ label, done, total }: { label: string; done: number; total: number }) {
@@ -154,7 +155,7 @@ export default function Evaluation() {
   );
 
   // Carpeta del tema (ruta y si ya existe en disco). Se recalcula al cambiar datos, por ejemplo tras descargar.
-  const subjectFolder = page?.subject.download_folder ?? null;
+  const subjectFolder = page?.link.download_folder ?? null;
   const topicName = page?.evaluation.topic ?? null;
   const [topicStatus, setTopicStatus] = useState<{ path: string; exists: boolean } | null>(null);
   useEffect(() => {
@@ -177,7 +178,7 @@ export default function Evaluation() {
   if (page === undefined) return <p className="text-muted">Cargando...</p>;
   if (page === null) return <p className="text-muted">Evaluacion no encontrada.</p>;
 
-  const { evaluation, subject, group, students: groupStudents } = page;
+  const { evaluation, subject, link, group, students: groupStudents } = page;
   const total = rows.length;
   const delivered = rows.filter((r) => isDelivered(r.submission)).length;
   const withLink = rows.filter((r) => r.submission.repo_url !== null);
@@ -192,7 +193,7 @@ export default function Evaluation() {
     try {
       const gitPath = await readGitPath();
       await checkGit(gitPath ?? undefined);
-      const topicFolder = await resolveEvaluationFolder(subject, evaluation.topic);
+      const topicFolder = await resolveEvaluationFolder(link, evaluation.topic);
       if (topicFolder === null) return;
 
       const summary = await downloadMany(
