@@ -2,6 +2,18 @@
 
 Formato basado en Keep a Changelog y versionado semantico (https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-10-29
+
+### Added
+- Grado y modalidad (CRD hasta 4to, CPE hasta 5to) en cada grupo, con el nombre generado
+- Boton Retroceder para bajar estudiantes un grado
+
+### Changed
+- Promover sube un grado en la misma modalidad y crea el grupo destino si no existe, con curso destino a elegir
+- El periodo del grupo pasa a ser semestre (1er o 2do, por defecto 1er); la migracion 006 convierte los grupos existentes
+- La escala de nota y la carpeta de descargas de cada asignatura se editan ahora dentro de Editar grupo, en un solo modal
+- El boton de cursos de Inicio ahora dice Administrar cursos
+
 ## [0.7.0] - 2026-10-29
 
 ### Changed

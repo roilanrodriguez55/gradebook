@@ -14,6 +14,7 @@ pub fn run() {
     if let Err(err) = std::fs::create_dir_all(&data_dir.0) {
         eprintln!("No se pudo crear {}: {err}", data_dir.0.display());
     }
+    data::seed_dev_from_prod(&data_dir, &identifier);
     data::migrate_legacy(&data_dir, &identifier);
 
     tauri::Builder::default()
@@ -55,6 +56,12 @@ pub fn run() {
                         version: 5,
                         description: "group_subject_download_folder",
                         sql: include_str!("../migrations/005_group_subject_download_folder.sql"),
+                        kind: MigrationKind::Up,
+                    },
+                    Migration {
+                        version: 6,
+                        description: "group_grade_modality",
+                        sql: include_str!("../migrations/006_group_grade_modality.sql"),
                         kind: MigrationKind::Up,
                     }],
                 )

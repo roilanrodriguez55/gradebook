@@ -17,6 +17,18 @@ interface CourseSection {
   views: GroupView[];
 }
 
+// Dentro de cada curso: por modalidad y luego por grado. Los grupos sin modalidad van al final.
+function compareGroups(a: GroupView, b: GroupView): number {
+  const ma = a.group.modality;
+  const mb = b.group.modality;
+  if (ma !== mb) {
+    if (ma === null) return 1;
+    if (mb === null) return -1;
+    return ma < mb ? -1 : 1;
+  }
+  return (a.group.grade ?? 99) - (b.group.grade ?? 99);
+}
+
 // Cursos por nombre; los grupos sin curso van al final bajo "Sin curso".
 function groupByCourse(views: GroupView[]): CourseSection[] {
   const byCourse = new Map<number, CourseSection>();
@@ -33,6 +45,7 @@ function groupByCourse(views: GroupView[]): CourseSection[] {
   const sections = [...byCourse.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
   const noCourse = views.filter((gv) => gv.course === null);
   if (noCourse.length > 0) sections.push({ key: "sin-curso", name: "Sin curso", views: noCourse });
+  for (const section of sections) section.views.sort(compareGroups);
   return sections;
 }
 
@@ -51,7 +64,7 @@ export default function Home() {
         <div className="flex gap-2">
           <Button onClick={() => setManagingCourses(true)}>
             <BookOpen size={14} />
-            Cursos
+            Administrar cursos
           </Button>
           <Button variant="primary" onClick={() => setCreating(true)}>
             <Plus size={14} />
@@ -90,7 +103,9 @@ export default function Home() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{gv.group.name}</p>
-                        <p className="text-muted">{gv.group.period ?? "Sin periodo"}</p>
+                        <p className="text-muted">
+                          {gv.group.modality ?? "Sin modalidad"}, {gv.group.semester === 1 ? "1er" : "2do"} semestre
+                        </p>
                       </div>
                       <span className="shrink-0 text-muted">
                         {gv.studentCount} {gv.studentCount === 1 ? "estudiante" : "estudiantes"}

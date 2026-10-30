@@ -2,6 +2,8 @@ export type SubmissionStatus = "pendiente" | "entregado" | "no_entrego" | "tardi
 
 export type DownloadStatus = "sin_descargar" | "descargando" | "ok" | "error";
 
+export type Modality = "CRD" | "CPE";
+
 export interface Course {
   id: number;
   name: string;
@@ -11,9 +13,11 @@ export interface Course {
 export interface Group {
   id: number;
   name: string;
-  period: string | null;
+  semester: 1 | 2;
   archived: number;
   course_id: number | null;
+  grade: number | null;
+  modality: Modality | null;
   created_at: string;
 }
 

@@ -10,9 +10,14 @@ const LEGACY_IDENTIFIERS: [&str; 1] = ["com.roilanrodriguez55.gradebook"];
 pub struct DataDir(pub PathBuf);
 
 impl DataDir {
+    /// En builds de desarrollo (`tauri dev`) usa una carpeta aparte (`<id>.dev`) para no tocar la base instalada.
     pub fn resolve(identifier: &str) -> Self {
         let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-        DataDir(base.join(identifier))
+        if cfg!(debug_assertions) {
+            DataDir(base.join(format!("{identifier}.dev")))
+        } else {
+            DataDir(base.join(identifier))
+        }
     }
 
     pub fn db_path(&self) -> PathBuf {
@@ -22,6 +27,24 @@ impl DataDir {
     /// Cadena de conexion del plugin SQL. El plugin la une a su carpeta base y una ruta absoluta la reemplaza.
     pub fn db_url(&self) -> String {
         format!("sqlite:{}", self.db_path().display())
+    }
+}
+
+/// Solo en desarrollo: si la base de dev aun no existe, la crea como copia de la de produccion.
+/// Para volver a copiarla, borra la carpeta `<id>.dev`. Nunca escribe en la carpeta de produccion ni aborta la app.
+pub fn seed_dev_from_prod(data: &DataDir, identifier: &str) {
+    if !cfg!(debug_assertions) || data.db_path().exists() {
+        return;
+    }
+    let Some(base) = dirs::data_dir() else {
+        return;
+    };
+    let prod = base.join(identifier);
+    if !prod.join(DB_FILE).is_file() {
+        return;
+    }
+    if let Err(err) = copy_db_files(&prod, &data.0) {
+        eprintln!("No se pudo copiar la base de produccion a dev: {err}");
     }
 }
 

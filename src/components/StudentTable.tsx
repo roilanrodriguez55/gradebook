@@ -24,7 +24,7 @@ interface StudentTableProps {
   onDelete: (student: StudentInGroup) => void;
   onPaste: () => void;
   onAdd: () => void;
-  onPromote: (studentIds: number[]) => void;
+  onPromote: (studentIds: number[], direction: "up" | "down") => void;
 }
 
 export function StudentTable({
@@ -123,8 +123,11 @@ export function StudentTable({
           >
             {promotableIds.length > 0 ? "Deseleccionar" : "Seleccionar todos"}
           </Button>
-          <Button onClick={() => onPromote(promotableIds)} disabled={promotableIds.length === 0}>
+          <Button onClick={() => onPromote(promotableIds, "up")} disabled={promotableIds.length === 0}>
             Promover ({promotableIds.length})
+          </Button>
+          <Button onClick={() => onPromote(promotableIds, "down")} disabled={promotableIds.length === 0}>
+            Retroceder ({promotableIds.length})
           </Button>
           <Button onClick={onPaste}>Pegar lista</Button>
           <Button variant="primary" onClick={onAdd}>

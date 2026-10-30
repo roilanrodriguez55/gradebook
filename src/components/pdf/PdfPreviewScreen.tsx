@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import * as courses from "../../db/courses";
 import * as evaluations from "../../db/evaluations";
 import * as groupSubjects from "../../db/groupSubjects";
 import * as groups from "../../db/groups";
@@ -10,7 +11,7 @@ import * as settings from "../../db/settings";
 import * as students from "../../db/students";
 import * as subjects from "../../db/subjects";
 import * as submissions from "../../db/submissions";
-import type { Evaluation, Group, GroupSubject, Student, Submission, Subject } from "../../db/types";
+import type { Course, Evaluation, Group, GroupSubject, Student, Submission, Subject } from "../../db/types";
 import { resolveSubjectFolder } from "../../lib/download";
 import { errorMessage } from "../../lib/errorMessage";
 import { sanitizeFolderName } from "../../lib/folderName";
@@ -45,6 +46,7 @@ interface ReportSource {
   subjectName: string;
   gradeMax: number;
   group: Group;
+  course: Course | null;
   teacherName: string | null;
   students: Student[];
   submissions: Submission[];
@@ -62,7 +64,7 @@ function reportInput(source: ReportSource): ReportInput {
     subjectName: source.subjectName,
     gradeMax: source.gradeMax,
     groupName: source.group.name,
-    groupPeriod: source.group.period,
+    groupPeriod: [source.course?.name, `${source.group.semester === 1 ? "1er" : "2do"} semestre`].filter(Boolean).join(", "),
     teacherName: source.teacherName,
     students: source.students,
     submissions: source.submissions,
@@ -97,6 +99,7 @@ async function loadSource(evaluationId: number): Promise<ReportSource> {
   ]);
   if (!group) throw new Error(`Grupo ${link.group_id} no encontrado`);
   if (!subject) throw new Error(`Asignatura ${link.subject_id} no encontrada`);
+  const course = group.course_id === null ? null : await courses.get(group.course_id);
   return {
     evaluation,
     subject,
@@ -104,6 +107,7 @@ async function loadSource(evaluationId: number): Promise<ReportSource> {
     subjectName: subject.name,
     gradeMax: subject.grade_max,
     group,
+    course,
     teacherName: teacherName?.trim() || null,
     students: evaluationStudents,
     submissions: entregas,

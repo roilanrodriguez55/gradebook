@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, FolderOpen, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, FolderOpen, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import * as courses from "../db/courses";
@@ -13,7 +13,6 @@ import { EvaluationFormDialog } from "../components/dialogs/EvaluationFormDialog
 import { GroupFormDialog } from "../components/dialogs/GroupFormDialog";
 import { PasteStudentsDialog } from "../components/dialogs/PasteStudentsDialog";
 import { PromoteStudentsDialog } from "../components/dialogs/PromoteStudentsDialog";
-import { SubjectSettingsDialog } from "../components/dialogs/SubjectSettingsDialog";
 import { StudentFormDialog } from "../components/dialogs/StudentFormDialog";
 import { StudentTable } from "../components/StudentTable";
 import { Badge } from "../components/ui/Badge";
@@ -78,14 +77,13 @@ export default function Group() {
   const [editingGroup, setEditingGroup] = useState(false);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [addingSubject, setAddingSubject] = useState(false);
-  const [configuringSubject, setConfiguringSubject] = useState<SubjectChip | null>(null);
   const [creatingEvaluation, setCreatingEvaluation] = useState<SubjectChip | null>(null);
   const [unlinking, setUnlinking] = useState<SubjectChip | null>(null);
   const [studentDialog, setStudentDialog] = useState<StudentDialog>(null);
   const [pasting, setPasting] = useState(false);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [promotingIds, setPromotingIds] = useState<number[] | null>(null);
+  const [promoting, setPromoting] = useState<{ ids: number[]; direction: "up" | "down" } | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (pageState.error !== null) return <LoadError message={pageState.error} onRetry={pageState.reload} />;
@@ -144,8 +142,7 @@ export default function Group() {
             {isArchived && <Badge>Archivado</Badge>}
           </div>
           <p className="text-muted">
-            {group.period ?? "Sin periodo"}
-            {course && ` · ${course.name}`}
+            {course?.name ?? "Sin curso"}, {group.semester === 1 ? "1er" : "2do"} semestre
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -202,16 +199,6 @@ export default function Group() {
                     <X size={12} />
                   </button>
                 </span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setConfiguringSubject(chip)}
-                  disabled={busy}
-                  aria-label={`Configuracion de ${chip.subject.name}`}
-                  title="Configuracion"
-                >
-                  <Settings2 size={14} />
-                </Button>
                 <Button size="sm" onClick={() => setCreatingEvaluation(chip)} disabled={busy}>
                   + Evaluacion
                 </Button>
@@ -233,11 +220,11 @@ export default function Group() {
           onPaste={() => setPasting(true)}
           onEdit={(student) => setStudentDialog({ mode: "edit", student })}
           onDelete={(student) => setDeletingStudent(student)}
-          onPromote={(ids) => setPromotingIds(ids)}
+          onPromote={(ids, direction) => setPromoting({ ids, direction })}
         />
       </section>
 
-      {editingGroup && <GroupFormDialog group={group} onClose={() => setEditingGroup(false)} />}
+      {editingGroup && <GroupFormDialog group={group} subjects={chips} onClose={() => setEditingGroup(false)} />}
 
       <ConfirmDialog
         open={confirmDeleteGroup}
@@ -260,16 +247,6 @@ export default function Group() {
           groupSubjectId={creatingEvaluation.linkId}
           onClose={() => setCreatingEvaluation(null)}
           onCreated={(evaluation) => navigate(`/evaluacion/${evaluation.id}`)}
-        />
-      )}
-
-      {configuringSubject && (
-        <SubjectSettingsDialog
-          subject={configuringSubject.subject}
-          linkId={configuringSubject.linkId}
-          downloadFolder={configuringSubject.downloadFolder}
-          groupName={group.name}
-          onClose={() => setConfiguringSubject(null)}
         />
       )}
 
@@ -309,11 +286,12 @@ export default function Group() {
 
       {pasting && <PasteStudentsDialog groupId={group.id} onClose={() => setPasting(false)} />}
 
-      {promotingIds !== null && (
+      {promoting !== null && (
         <PromoteStudentsDialog
           fromGroup={group}
-          studentIds={promotingIds}
-          onClose={() => setPromotingIds(null)}
+          studentIds={promoting.ids}
+          direction={promoting.direction}
+          onClose={() => setPromoting(null)}
         />
       )}
 
